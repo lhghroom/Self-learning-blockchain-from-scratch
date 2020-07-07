@@ -1,0 +1,164 @@
+孤荷凌寒自学python第八十九天认识区块链003
+【主要内容】
+今天开始尝试通过Python来建构一个最简单功能的区块链实现，共用时间34分钟。
+（此外整理作笔记花费了约44分钟）
+详细学习过程见文末学习过程屏幕录像。
+主要继续之前的博文进行学习：
+https://blog.csdn.net/Blockchain_lemon/article/details/81161449
+不过到今天才发现，这篇博文可能也是复制的，因为只是说有github上的开源项目，却没有指向github的链接。
+不过好在经过搜索，我最终下载到了这个github项目。
+https://github.com/adilmoujahid/blockchain-python-tutorial
+
+【学习笔记】
+一、创建一个区块链客户端节点
+下载的源文件中在blockchain_client目录下，有一个Py文件：
+blockchain_client.py
+此文件的内容如下：
+```
+from collections import OrderedDict
+
+import binascii
+
+import Crypto
+import Crypto.Random
+from Crypto.Hash import SHA
+from Crypto.PublicKey import RSA
+from Crypto.Signature import PKCS1_v1_5
+
+import requests
+from flask import Flask, jsonify, request, render_template
+
+
+class Transaction:
+
+    def __init__(self, sender_address, sender_private_key, recipient_address, value):
+        self.sender_address = sender_address
+        self.sender_private_key = sender_private_key
+        self.recipient_address = recipient_address
+        self.value = value
+
+    def __getattr__(self, attr):
+        return self.data[attr]
+
+    def to_dict(self):
+        return OrderedDict({'sender_address': self.sender_address,
+                            'recipient_address': self.recipient_address,
+                            'value': self.value})
+
+    def sign_transaction(self):
+        """
+        Sign transaction with private key
+        """
+        private_key = RSA.importKey(binascii.unhexlify(self.sender_private_key))
+        signer = PKCS1_v1_5.new(private_key)
+        h = SHA.new(str(self.to_dict()).encode('utf8'))
+        return binascii.hexlify(signer.sign(h)).decode('ascii')
+
+
+
+app = Flask(__name__)
+
+@app.route('/')
+def index():
+	return render_template('./index.html')
+
+@app.route('/make/transaction')
+def make_transaction():
+    return render_template('./make_transaction.html')
+
+@app.route('/view/transactions')
+def view_transaction():
+    return render_template('./view_transactions.html')
+
+@app.route('/wallet/new', methods=['GET'])
+def new_wallet():
+	random_gen = Crypto.Random.new().read
+	private_key = RSA.generate(1024, random_gen)
+	public_key = private_key.publickey()
+	response = {
+		'private_key': binascii.hexlify(private_key.exportKey(format='DER')).decode('ascii'),
+		'public_key': binascii.hexlify(public_key.exportKey(format='DER')).decode('ascii')
+	}
+
+	return jsonify(response), 200
+
+@app.route('/generate/transaction', methods=['POST'])
+def generate_transaction():
+	
+	sender_address = request.form['sender_address']
+	sender_private_key = request.form['sender_private_key']
+	recipient_address = request.form['recipient_address']
+	value = request.form['amount']
+
+	transaction = Transaction(sender_address, sender_private_key, recipient_address, value)
+
+	response = {'transaction': transaction.to_dict(), 'signature': transaction.sign_transaction()}
+
+	return jsonify(response), 200
+
+
+if __name__ == '__main__':
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser()
+    parser.add_argument('-p', '--port', default=8080, type=int, help='port to listen on')
+    args = parser.parse_args()
+    port = args.port
+
+    app.run(host='127.0.0.1', port=port)
+```
+今天还没有开始研究它的详细内容，就发现我的系统配置中少了关键的一些外部模块，于是尝试先行添加之。
+
+二、安装Crypto
+根据网上比较常见的教程，都认为直接通过
+pip install Crypto
+来安装即可，然而，如果这样操作，那要踩的坑实在是太多了，
+首先提示要安装 vc++ 14.0版本，费尽力气全部下载安装了，还是不行，后来才历尽千辛万苦发现，针对我的系统中配置的python3.6版本，Crypto根本就不再支持了。
+于是才知道应当使用下面的扩展模块：
+pip install pycryptodome
+这下子，就完成安装了，而且vscode中之前的缺少外部模块的错误提示也消失了，不过还没有运行测试是否真的能行。
+参见教程：
+https://www.jianshu.com/p/a01bdffb8210
+
+
+三、安装flask（没有完成）
+找到的教程：https://www.2cto.com/kf/201806/754008.html
+然后我开始尝试安装flask这个模块，找到了相应的博文，然而发现这个模块安装也是相当的不容易，由于时间关系，准备明天再作尝试了。
+
+原文地址：http://www.941xue.com/content.aspx?id=228 
+
+【学习后记】
+一、python的开放性，包容性，丰富的第三方库属性
+自我学习Python这几十天来，真正见识了Python的极大的开放性，包容性，它仰赖着庞大的第三方库，可以说做到了无所不能，这是它的优点。
+然而为了配置环境，它也非常让人恼火，由于版本众多，统一的架构其实并不完善，给配置系统环境带来巨大的挑战，相比微软的vs系列平台的简洁、易安装、易配置，Python的学习之路上注定要花很多时间在无谓的挣扎上。
+
+二、学海
+当看到Python的这些密密麻麻的第三方库的时候，就仿佛看到了一片海。
+小时候老师说：学海无涯，我还以为这是夸张，如此年岁渐长，才明白，知识的海洋真的存在，面对大海，小小的我连沧海一粟都谈不上。
+由于荒废了太多的时光，如今我不可能再谈为自己装下什么，面对这样的现实与年岁，我不得不另寻活路，何其壮哉！
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/253730028
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/av88002254/
+链接：https://pan.baidu.com/s/1BapVXQfQHH3xZrFXQ8hXkQ 
+提取码：15rv 
+
