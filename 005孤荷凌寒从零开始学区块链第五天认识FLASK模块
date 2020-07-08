@@ -1,0 +1,170 @@
+【主要内容】
+为了读懂从github上下载的项目的源代码，今天不得不了解下flask这个模块的用法，共用时间34分钟。
+（此外整理作笔记花费了约58分钟）
+详细学习过程见文末学习过程屏幕录像。
+初步了解了flask模块的用法，见识了Python中关于web服务器程序建构模块的强大功力。
+主要通过以下网络资源进行学习：
+http://docs.jinkan.org/docs/flask/quickstart.html 
+
+【学习笔记】
+一、得到一个服务器程序对象
+（一）本地直接运行了一个web服务器对象而完全无需配置：
+web服务器对象app=Flask(对象所在应用模块或包的名称)
+一般的写法是：
+app=Flask(__name__)
+其中
+【对象所在应用模块或包的名称】
+这个参数是初始化时的第一个参数，理解它还真是不容易，
+以下是原版解释：
+“第一个参数是应用模块或者包的名称。 如果你使用单一的模块（如本例），你应该使用 __name__ ，因为模块的名称将会因其作为单独应用启动还是作为模块导入而有不同（ 也即是 '__main__' 或实际的导入名）。这是必须的，这样 Flask 才知道到哪去找模板、静态文件等等。”
+看完一头雾水，当然也显露了自己基础其实还很薄弱哈。
+
+于是又找到了更详细的描述如下：
+“About the First Parameter
+The idea of the first parameter is to give Flask an idea what belongs to your application. This name is used to find resources on the file system, can be used by extensions to improve debugging information and a lot more.
+
+So it’s important what you provide there. If you are using a single module, __name__ is always the correct value. If you however are using a package, it’s usually recommended to hardcode the name of your package there.
+
+For example if your application is defined in yourapplication/app.py you should create it with one of the two versions below:
+
+app = Flask('yourapplication')
+app = Flask(__name__.split('.')[0])
+Why is that? The application will work even with __name__, thanks to how resources are looked up. However it will make debugging more painful. Certain extensions can make assumptions based on the import name of your application. For example the Flask-SQLAlchemy extension will look for the code in your application that triggered an SQL query in debug mode. If the import name is not properly set up, that debugging information is lost. (For example it would only pick up SQL queries in yourapplication.app and not yourapplication.views.frontend)”
+
+这是英文原版的说明，发现英文太差，还是没有任何收获，机器翻译后的文字是：
+“关于第一个参数
+第一个参数的想法是让Flask了解属于您的应用程序的内容。此名称用于查找文件系统上的资源，可以通过扩展使用以改进调试信息等等。
+
+所以你在那里提供的很重要。如果您使用的是单个模块，则__name__始终是正确的值。但是，如果您使用的是软件包，通常建议在那里对软件包的名称进行硬编码。
+
+例如，如果您的应用程序是在yourrapplication / app.py中定义的， 则应使用以下两个版本之一创建它：
+
+app  =  Flask （'yourapplication' ）
+app  =  Flask （__name__ 。split （'。' ）[ 0 ]）
+这是为什么？由于查询了资源，应用程序甚至可以使用__name__。但是它会使调试更加痛苦。某些扩展可以根据应用程序的导入名称进行假设。例如，Flask-SQLAlchemy扩展将查找应用程序中以调试模式触发SQL查询的代码。如果未正确设置导入名称，则该调试信息将丢失。（例如，它只会在yourapplication.app中获取SQL查询，而不是 yourapplication.views.frontend）”
+
+感觉稍微清醒了些，此时我的大概理解时，这第一个参数其实指明了这个web服务器对象运行时隶属于Py程序结构的哪个模块中（方便后结客户端web交互时找哪些个Py文件来响应客户端的请求）
+
+于是发现，其实我一直没有理解，单个Py文件书写时，执行的自动入口：
+if　__name__==”__main__”:
+
+这个入口写法的真正意思，便搜索了下下，发现：
+https://blog.csdn.net/zhusongziye/article/details/79505803
+这篇博文讲得非常清楚，原来
+__name__
+是每个Py文件默认内置的一个变量，直接执行此Py文件时，这个变量指明的就是这个页面自身，对于引用此Py文件 的其它 py文件 来说，这个变量又指明了自己这个py页面所代表的模块 的名称 。
+我这个表达可能只有我自己能够理解，还是用此博文中的原话说得更好些：
+“当运行模块被执行的时候，__name__等于文件名（包含了后缀.py）；如果import到其他模块中，则__name__等于模块名称（不包含后缀.py）。”
+
+那么
+app=Flask(__name__)
+
+因为此处我只作简单测试 ，甚至都没有预先定义 html格式 的文件 模板，因此只需要 为第一个参数使用__name__这个变量就行了。
+
+此时__name__就代表了当前代码所在的这个Py文件本身所指的模块对象。
+
+（二）Flask初始化时的其它参数
+完整的初始化参数如下：
+Flask （import_name，static_path = None，static_url_path = None，static_folder ='static'，template_folder ='templates'，instance_path = None，instance_relative_config = False ）
+参数简单说明：
+import_name - 应用程序包的名称
+static_url_path - 可用于为Web上的静态文件指定不同的路径。默认为static_folder文件夹的名称。
+static_folder - 包含应在static_url_path中提供的静态文件的文件夹。默认为 应用程序根路径中的“static”文件夹。
+template_folder - 包含应用程序应使用的模板的文件夹。默认为 应用程序根路径中的“templates”文件夹。
+instance_path - 应用程序的备用实例路径。默认情况下，包或模块旁边的文件夹“instance”被假定为实例路径。
+instance_relative_config - 如果设置为True，则假定用于加载配置的相对文件名相对于实例路径而不是应用程序根目录。
+
+二、通过Flask实例化对象的route()方法来建构显示在客户端访问此web服务器对象的浏览器上的Url地址
+我的练习代码如下：
+from flask import Flask
+
+app=Flask(__name__) #此处第一个参数直接使用Py本文件的内置变量__name__，表示服务器程序名称就使用本Py文件的名称。
+
+@app.route("/") #指定显示的实际url相对于WEB应用服务器对象的根目录而言的路径
+def index(u):
+    return "我是首页，在根目录下"
+
+@app.route("/admin/")
+def admin(u):
+    return "我是管理员登录页，在根目录下的admin子目录下
+
+if __name__=="__main__":
+    app.run()
+如昨天已分析的那样，这里虚拟建构出了两个页面并指明了要显示的Url路径。
+和昨天分析的别人的源文件 不同，我这儿没有 事先准备任何已有的html文件作为模板。
+测试时，从浏览器中访问时，却仿佛在访问两个不同的页面一样，而且两个页面还位于不同层级的url目录 中。
+
+三、通过url建构的参数并传递
+下面是原文，认为已经讲得比较清楚了：
+“要给 URL 添加变量部分，你可以把这些特殊的字段标记为 <variable_name> ， 这个部分将会作为命名参数传递到你的函数。规则可以用 <converter:variable_name> converter指定一个可选的转换器。这里有一些不错的例子:
+
+@app.route('/user/<username>')
+def show_user_profile(username):
+    # show the user profile for that user
+    return 'User %s' % username
+
+@app.route('/post/<int:post_id>')
+def show_post(post_id):
+    # show the post with the given id, the id is an integer
+    return 'Post %d' % post_id
+转换器有下面几种：
+
+int	接受整数
+float	同 int ，但是接受浮点数
+path	和默认的相似，但也接受斜线”
+
+于是修改我的代码如下：
+from flask import Flask
+
+app=Flask(__name__) #此处第一个参数直接使用Py本文件的内置变量__name__，表示服务器程序名称就使用本Py文件的名称。
+
+@app.route("/<u>") #指定显示的实际url相对于WEB应用服务器对象的根目录而言的路径
+def index(u):
+    return "我是首页，在根目录下,当前登录用户：" + str(u)
+
+@app.route("/admin/<u>")
+def admin(u):
+    return "我是管理员登录页，在根目录下的admin子目录下,当前管理员是："  + str(u)
+
+@app.route("/compute/<int:a>/<int:b>")
+def compute(a,b):
+    return str(a) + "乘以" + str(b) + "等于" + str(a*b)
+
+if __name__=="__main__":
+    app.run()
+具体执行过程见我的学习录屏，链接在文末。
+
+【学习后记】
+一、python用flask来建构服务器应用还真是很有意思
+今天通过自己亲自动手，虽然没有创建任何html页面，但就已经见识了Python通过flask模块展示的强大的服务器应用的建构能力，而且据说，flask模块还只是一个轻量级的模块，大有比它优秀很多的其它同类型模块，同此见得python的力量在有外部模块的加持下，真是令人叹为观止。
+对于真实url的层级的隐藏，使用flask模块的话真是太方便了，简直可以说是随心所欲，令人咋舌。
+
+原文地址：http://www.941xue.com/content.aspx?id=243 
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/254678480
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/av88497023/
+
+链接：https://pan.baidu.com/s/1oJXCxPSF7l9P89Xt4nM0MA 
+提取码：6vmq
+
