@@ -1,0 +1,272 @@
+孤荷凌寒自学python第九十二天认识区块链006
+【主要内容】
+今天继续学习flask这个模块的用法，共用时间60分钟。
+（此外整理作笔记花费了约60分钟）
+详细学习过程见文末学习过程屏幕录像。
+初步了解了flask模块的用法，见识了Python中关于web服务器程序建构模块的强大功力。
+主要通过以下网络资源进行学习：
+http://docs.jinkan.org/docs/flask/quickstart.html 
+
+【学习笔记】
+一、Flask创建的服务器对象运行时可以指定相关参数
+if __name__=="__main__":
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser()
+    parser.add_argument('-p', '--port', default=80, type=int, help='监听端口')
+    args = parser.parse_args()
+    port = args.port
+
+    app.run(host='127.0.0.1', port=port)    
+
+昨天的启动对象的部分，只使用了
+app.run
+于是，默认使用5000端口号，通过 使用
+127.0.0.1:5000来访问web服务器
+而今天通过修改商品号为80，我就可以直接使用
+127.0.0.1
+来访问web服务器了。
+
+二、实例化Flask对象的初始化参数由于版本的变化有所不同
+我使用的flask版本为v1.0.2
+参数按顺序如下：
+import_name 实例所依托的模块名或实例名
+static_url_path  没有 理解，填写 None就行了
+static_folder    静态内容（比如css文件 ，js文件等）存放的目录 名（此目录 在Py文件所在的根目录下。）
+static_host      没有理解，填写None就行了。
+host_mathing    没有理解，默认值为False就行了。
+subdomain_matching   也没有理解，填写False就行了。
+template_folder   html页面模板所存放的目录（此目录在py文件所在的根目录下。）
+instance_path     没有理解，填写None就行了
+instance_relative_config  没有理解，填写False就行了
+root_path         没有理解，填写None就行了
+
+
+三、构建html的模板文件 
+为了使用html模板文件，并验证python文件在服务器端处理客户端发起的post请求的实现，于是建构了一个简单的html模板，存放在与py文件同一目录层级下的一个名为【html】的目录中，同时在第二点中的参数设置中就设置【template_folder】为html。（具体目录实现见学习过程录屏，链接在文末）
+这个Html模板文件的内容如下：
+```
+<!DOCTYPE html>
+<html>
+
+	<head>
+
+    	<meta charset="utf-8">
+    	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    	<meta name="description" content="">
+    	<meta name="author" content="">
+
+
+    	<title>孤荷凌寒的第一个Flask页面</title>
+
+		
+		<script src="/jsetc/_ty_ajax_xml.js"></script>
+    	<script src="/jsetc/_ty_function.js"></script>
+
+		<script language="javascript" type="text/javascript">
+			
+//通过AJAX的方法向服务器端发送post请求
+var requestup;
+var isrequest_up_runned=false;
+//发送post请求
+function submitme(){
+	try{
+		var stru=document.forms[0].t1.value;
+		var strb=document.forms[0].t2.value;
+		//alert(stru);
+		if(strb!="" && stru!=""){
+						isrequest_up_runned=true;
+						var url="/login/";
+
+						var strcan="u=" + stru;
+						strcan=strcan + "&p=" + strb;
+						
+						requestup=createRequest();
+						//alert(strcan);
+						//--request up-----------
+						ajaxsendtextbypost(requestup,url,strcan,"ajax_submitselect_back");
+						return true;
+		}
+		//----------------------------------
+	}catch(err){
+		//alert("提交失败：" + err.description);
+	}
+	finally{
+	}
+}
+
+//-----等待服务器返回处理结果-----------------------
+function ajax_submitselect_back(){
+	try{
+
+		//-----------------------------------------------
+		//-----------------------------------------------
+					if (requestup.readyState == 4) {
+						if (requestup.status == 200) {
+						    var response = requestup; //无法还原为文本，因此可能需要解码
+							alert(response);
+						    //alert(instr(response, "okghlh", 0));
+							document.getElementById("divform").style.display='none';
+              				document.getElementById("divshow").style.display="block";
+              				document.getElementById("divshow").innerHTML=response["txt"];
+
+						}else{
+							//var response2 = unescape(requestup.responseText);
+							//alert(response2);
+						}
+						isrequest_up_runned=false;
+					}
+	}catch(err){
+		//alert("提交可能失败！" + err.description);
+		isrequest_up_runned=false;
+	}
+}	
+			
+
+//最开始是使用的jquery来实现的，但因为服务器端的Py文件代码错误，我以为是这儿的js代码错了，于是没有使用下面的代码 。
+			//下面的函数没有使用了，但也没有错
+			function submitme2(){
+				$.ajax({
+            		url: '/login/',
+            		type: 'POST',
+					data:'u=' + document.getElementById("t1").value + "&p=" + document.getElementById("t2").value,
+            		success: function(response){
+              			document.getElementById("divform").style.display='none';
+              			document.getElementById("divshow").style.display="block";
+              			document.getElementById("divshow").innerHTML=response["txt"];
+            		},
+            		error: function(error){
+              			console.log(error);
+            		}
+          		});
+				
+				
+			}
+		</script>
+				
+    
+  	</head>
+
+  	<body>
+		<div id="divform">
+		<form>
+			<p>
+				<span>登录用户名：</span>
+				<input type="text" id="t1" name="t1">
+			</p>
+			<p>
+				<span>登录密  码：</span>
+				<input type="password" id="t2" name="t2">
+			</p>
+			<p>
+				<input type="button" id="cmdOk" value="登录" onClick="submitme();">
+			</p>
+			
+		</form>
+		</div>
+		<div id="divshow" style="display:none;">
+			
+		</div>
+	</body>
+	
+</html>
+	  
+	
+```
+四、在py文件的代码中，构建了一个虚拟的路径url
+/login/ 
+来处理上面的html模板中的js代码通过ajax发起的post请求。
+代码如下：
+```
+@app.route("/login/",methods=["POST"]) #methods参数需要的是一个列表，而且不是method参数，是复数形式
+def login():
+    u=request.form["u"]  #这儿是读取客户端传过来的post参数，注意使用的是方括号
+    p=request.form["p"]
+    response={
+        'txt':'当前用户' + u + '登录成功！密码是：' + p
+    }
+
+    return jsonify(response),200 #我不知道为什么要同时返回一个Int值200
+
+```
+
+五、完整的Py文件代码
+```
+from flask import Flask
+import requests
+from flask import Flask, jsonify, request, render_template
+
+app=Flask(__name__,None,"jsetc",None,False,False,"html") #此处第一个参数直接使用Py本文件的内置变量__name__，表示服务器程序名称就使用本Py文件的名称。
+
+@app.route("/") #指定显示的实际url相对于WEB应用服务器对象的根目录而言的路径
+def index():
+    return render_template('./i.html')
+
+@app.route("/login/",methods=["POST"]) #methods参数需要的是一个列表，而且不是method参数，是复数形式
+def login():
+    u=request.form["u"]  #这儿是读取客户端传过来的post参数，注意使用的是方括号
+    p=request.form["p"]
+    response={
+        'txt':'当前用户' + u + '登录成功！密码是：' + p
+    }
+
+    return jsonify(response),200 #我不知道为什么要同时返回一个Int值200
+
+@app.route("/admin/<u>")
+def admin(u):
+    return "我是管理员登录页，在根目录下的admin子目录下,当前管理员是："  + str(u)
+
+@app.route("/compute/<int:a>/<int:b>")
+def compute(a,b):
+    return str(a) + "乘以" + str(b) + "等于" + str(a*b)
+
+if __name__=="__main__":
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser()
+    parser.add_argument('-p', '--port', default=80, type=int, help='监听端口')
+    args = parser.parse_args()
+    port = args.port
+
+    app.run(host='127.0.0.1', port=port)    
+
+
+```
+【学习后记】
+一、Flask在服务器端对客户端的请求处理比较高效
+与我熟悉的asp.net的服务器端架构比较，python来实现感觉更高效，特别是前后端是完全分离的，数据交换更多通过ajax等技术来实现，前后端就完全不会粘连混淆，这点感觉不错。
+
+二、技术学习越早越好
+一大把年纪再来学习，真的很痛苦，每天都只好感慨自己“少壮不努力，老大徒伤悲”。岁月不会饶人，这就送给尚且年轻的朋友们吧，凡事趁早，未来会非常美好！
+
+
+
+原文地址：http://www.941xue.com/content.aspx?id=249  
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/255132914
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/av89267641/
+链接：https://pan.baidu.com/s/1LjfxhLWuoQFYbkQZ7UNicw 
+提取码：vfvi 
+
+
