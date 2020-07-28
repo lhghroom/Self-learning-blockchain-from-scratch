@@ -1,0 +1,191 @@
+孤荷凌寒自学python第105天认识区块链019
+【主要内容】
+今天继续分析从github上获取的开源代码怎么实现简单区块链的入门知识，共用时间34分钟。
+（此外整理作笔记花费了约72分钟）
+详细学习过程见文末学习过程屏幕录像。
+今天主要开始分析昨天断点调试后得到的变量中间值，进而反推执行过程，以注释之前还不理解 的代码部分，发现我学习的难点还在于 密码学部分，及基础的python编码部分。
+
+
+【学习笔记】
+一、Python的字符串编码处理：
+参考博文: https://blog.csdn.net/qq_40134903/article/details/80710882感谢博主的分享
+今天才算是补学到了基础知识部分的两个方法：
+字符串对象有两个方法：
+1.
+字符串对象.encode(要转换成为的字符串编码类型描述字符串)
+encode()方法是指将【字符串对象】的编码（由unicode编码）转换为【要转换成为的字符串编码】
+如：
+str1.encode(‘utf-8’)
+就表示要将str1（str1的原本编码格式应当是：unicode编码）的编码格式转换为【utf-8】编码格式。
+
+2.
+字符串对象. decode(字符串对象目前的编码类型描述字符串)
+decode()方法是将【字符串对象】由【字符串对象目前的编码】格式转换回【unicode】编码格式。
+
+这就是说，在Python的字符串处理编码中，
+【unicode】编码作为中间交换件存在。是python3默认存在的编码格式。
+
+二、byte字符串编码处理：
+（一）python的字符串类别只有两种
+1.非byte（字节）模式的字符串：
+就是说字符串之前没有使用前缀b
+如：
+‘我是孤荷凌寒’
+也可能是：
+u’我的qq号是：578652607’
+
+2.byte（字节）模式的字符串
+就是说字符串之前使用了前缀：b
+如：
+b’ass8932436236’
+此时分两种情况：
+第一种情况：
+前缀b后面的字符串中使用的是用转义符：
+\x
+来转义表示的
+十六进制的字符编码
+如：
+\x38
+这表示一个字符的编码。
+如：
+    b'0\x82\x02]\x02\x01\x00\x02\x81\x81\x00\xbac\xd7\x02\xfc~\x02\xc3\x85sL\xb3\x84n]\x8ds\x19\xab97\xe3\xb5a\r$\xd0\x93\xb0\xd1t\xe4\xe5\xde!\xfe\x9a\x15\xfbagw \x04u\x1b\x13u^\xc6l\xf4\x84\xad\x07\xcb\x12\xf9o\x0c\xea\xa7b\xbaC\xfb\x05H\x86\xad\xd8~\x8a\xc6\xe6\x11\x173\xb3\xa1\xaeY\x91CW\xaeK\xf0\xef\x81\x9d0\x92O\x01\xd5T\xc1p\x0fe>\xa9Q\x12\x07\xb00\xe4OMhKY\xfe\\\xe4Dx\x84Q\xacKH\xd4\x1d\xdd\xf3\x02\x03\x01\x00\x01\x02\x81\x80\x18~\xe8\x92\x0e\xe6\xec\xac\x0f\x8c\xd0\xa6\xc3\x1f\xd2\x11\xb5\xef\xc8\xad\xf3gl\xbd\xfd\x81:\x1c>\xdf\xb82 \xf7\xa9\x96\x11`\x142\x7f\xeb\x8a\xfc\xaa\xfbL\xfa^\xe3K\x0cs\xa7]\xdf\xd5u\x8c\x9f\xb0\xf3 \xa9J\xbc~\xcbA{\xd0\x11+8?\xb1\x96I*5\xc9\x11@\x86$\x90\xce\xaf\xfa\xbf\xc4`\xfc6\xb4r*\xf3P\x857\xd2\xdcl\\\x84\xe1\xb14\xea\x88\x8e\xb8\x04\xa4d?3B\xa6\xaf\xa2Y^\xe0\xce@\x89\x02A\x00\xd8.x\xbbE\xd4\x97\x9c\xc8z\xcd\xf3\xaa\x18*\xf1k\r\x80\x18\xff\xfb\xca\xdf$6^\xe4\xff\x84w\x93\xb9W<\x13et\xee\xba\xeeM{\xc6\xfc^\x97\n\xbf~\xe6C;\x05\xa3\x9bO\x05_;F]\xa0\r\x02A\x00\xdc\xb8\x9e\x82\xf6\x08\xf8\xaf\xba:\xe3/\x1c\x98\xbdz(\xdfi\xe7\xb3\xb8;\xac|\xa0>\xf4\xda\xef\xda\x18@T\xab\x832W\xf94\x88T\xb22]\xc4\x9e\xabH\x86\x0b\xbd-A\xfc\x97bD\xb0d\xa2\xab\xf5\xff\x02A\x00\xd4\x0e\xe9\xf1R3\x931\x81[-q\xaa\xd5\xa02F\xff\xec;\x19\xc7\xc5\x9e\x93\xe8\x1d\xb7\xe6\x89\xeb\xbee\xdd\x93\x99\xb798\x00\xf8G\xdbv;\x13\x12x\xc1\x95\xda\x8b\xf2v\xba\xa1[\xa7z^+\xcd%u\x02A\x00\x8dv\x19\xc9\x8f\x8crn\x95\xe9\xf5\xff\x14\xd1\xe3\xe6nY\xba\x13\x91@\xcb\xa6!\xfd\xc6;\xc22%R\x93\xb0pxV\x84\xc1\xa8d\x93\xfb\xdd\x81\xf1iL\x17\xe0)\x97\xe6p\xbbE\xfe\xeaM/B~\xf9\xdb\x02@4.o4\xd4(\xb7C\x8d\xa3\x0f\xe0\x80\xcc\xd8\x14\x03\xc2\xf9\xa8A1B\xcb\xe1p\x8bk:\xfe\x0fE\xe6@\x19/\x0f\xbc\x86\xd1\xda-\xc4\x04\xca\xaf\x7f\x923\x1fJz\x02kD\x02*\xf7&\xbe9!\xa5\xf9'
+
+第二种情况:
+前缀b后面的字符串中使用的是用ascii字符编码来表示的字符
+即字符串中只有ascii字符。
+如：
+    b'3082025d02010002818100ba63d702fc7e02c385734cb3846e5d8d7319ab3937e3b5610d24d093b0d174e4e5de21fe9a15fb6167772004751b13755ec66cf484ad07cb12f96f0ceaa762ba43fb054886add87e8ac6e6111733b3a1ae59914357ae4bf0ef819d30924f01d554c1700f653ea9511207b030e44f4d684b59fe5ce444788451ac4b48d41dddf30203010001028180187ee8920ee6ecac0f8cd0a6c31fd211b5efc8adf3676cbdfd813a1c3edfb83220f7a996116014327feb8afcaafb4cfa5ee34b0c73a75ddfd5758c9fb0f320a94abc7ecb417bd0112b383fb196492a35c91140862490ceaffabfc460fc36b4722af3508537d2dc6c5c84e1b134ea888eb804a4643f3342a6afa2595ee0ce4089024100d82e78bb45d4979cc87acdf3aa182af16b0d8018fffbcadf24365ee4ff847793b9573c136574eebaee4d7bc6fc5e970abf7ee6433b05a39b4f055f3b465da00d024100dcb89e82f608f8afba3ae32f1c98bd7a28df69e7b3b83bac7ca03ef4daefda184054ab833257f9348854b2325dc49eab48860bbd2d41fc976244b064a2abf5ff024100d40ee9f152339331815b2d71aad5a03246ffec3b19c7c59e93e81db7e689ebbe65dd9399b7393800f847db763b131278c195da8bf276baa15ba77a5e2bcd25750241008d7619c98f8c726e95e9f5ff14d1e3e66e59ba139140cba621fdc63bc232255293b070785684c1a86493fbdd81f1694c17e02997e670bb45feea4d2f427ef9db0240342e6f34d428b7438da30fe080ccd81403c2f9a8413142cbe1708b6b3afe0f45e640192f0fbc86d1da2dc404caaf7f92331f4a7a026b44022af726be3921a5f9'
+
+（二）不同byte字符串表示方法的互相转换
+首先要引用模块：
+import binascii
+此模块中有两个相对的方法可以实现互换;
+1.
+hexlify(十六进制编码表示的byte字符串)
+方法
+hexlify()方法将上面用【十六进制编码表示的byte字符串】，转换成用ASCII字符编码表示的字符编码，仍然是byte字符串
+
+2.
+unhexlify(其它编码格式表示的byte字符串)
+方法：
+注意这儿我并不确定此方法能转换的必须是【其它编码格式表示的byte字符串】，也许任何字符串都行，还没有作具体研究。
+unhexlify()方法将一个用ascii（其实这里也可能原本是Unicode编码)编码表示 的字符串（我估计此处不一定是byte字符串）
+转换为，用十六进制（即字符串本身内容用\x转义表示编码）编码的byte字符串。
+
+
+三、对【blockchain_client.py】页面的补充注释：
+【blockchain_client.py】客户端页面
+```
+    def sign_transaction(self):
+        """
+        Sign transaction with private key
+        """
+        ls=binascii.unhexlify(self.sender_private_key)
+        '''
+        与hexlify()方法相反，
+        unhdexlify()方法，
+        将一个用ascii（其实这里也可能原本是Unicode编码)编码表示 的字符串（我估计此处不一定是byte字符串）
+        表示为，用十六进制（即字符串本身内容用\x转义表示编码）编码的byte字符串。
+        此时ls的值是：
+        b'0\x82\x02]\x02\x01\x00\x02\x81\x81\x00\xbac\xd7\x02\xfc~\x02\xc3\x85sL\xb3\x84n]\x8ds\x19\xab97\xe3\xb5a\r$\xd0\x93\xb0\xd1t\xe4\xe5\xde!\xfe\x9a\x15\xfbagw \x04u\x1b\x13u^\xc6l\xf4\x84\xad\x07\xcb\x12\xf9o\x0c\xea\xa7b\xbaC\xfb\x05H\x86\xad\xd8~\x8a\xc6\xe6\x11\x173\xb3\xa1\xaeY\x91CW\xaeK\xf0\xef\x81\x9d0\x92O\x01\xd5T\xc1p\x0fe>\xa9Q\x12\x07\xb00\xe4OMhKY\xfe\\\xe4Dx\x84Q\xacKH\xd4\x1d\xdd\xf3\x02\x03\x01\x00\x01\x02\x81\x80\x18~\xe8\x92\x0e\xe6\xec\xac\x0f\x8c\xd0\xa6\xc3\x1f\xd2\x11\xb5\xef\xc8\xad\xf3gl\xbd\xfd\x81:\x1c>\xdf\xb82 \xf7\xa9\x96\x11`\x142\x7f\xeb\x8a\xfc\xaa\xfbL\xfa^\xe3K\x0cs\xa7]\xdf\xd5u\x8c\x9f\xb0\xf3 \xa9J\xbc~\xcbA{\xd0\x11+8?\xb1\x96I*5\xc9\x11@\x86$\x90\xce\xaf\xfa\xbf\xc4`\xfc6\xb4r*\xf3P\x857\xd2\xdcl\\\x84\xe1\xb14\xea\x88\x8e\xb8\x04\xa4d?3B\xa6\xaf\xa2Y^\xe0\xce@\x89\x02A\x00\xd8.x\xbbE\xd4\x97\x9c\xc8z\xcd\xf3\xaa\x18*\xf1k\r\x80\x18\xff\xfb\xca\xdf$6^\xe4\xff\x84w\x93\xb9W<\x13et\xee\xba\xeeM{\xc6\xfc^\x97\n\xbf~\xe6C;\x05\xa3\x9bO\x05_;F]\xa0\r\x02A\x00\xdc\xb8\x9e\x82\xf6\x08\xf8\xaf\xba:\xe3/\x1c\x98\xbdz(\xdfi\xe7\xb3\xb8;\xac|\xa0>\xf4\xda\xef\xda\x18@T\xab\x832W\xf94\x88T\xb22]\xc4\x9e\xabH\x86\x0b\xbd-A\xfc\x97bD\xb0d\xa2\xab\xf5\xff\x02A\x00\xd4\x0e\xe9\xf1R3\x931\x81[-q\xaa\xd5\xa02F\xff\xec;\x19\xc7\xc5\x9e\x93\xe8\x1d\xb7\xe6\x89\xeb\xbee\xdd\x93\x99\xb798\x00\xf8G\xdbv;\x13\x12x\xc1\x95\xda\x8b\xf2v\xba\xa1[\xa7z^+\xcd%u\x02A\x00\x8dv\x19\xc9\x8f\x8crn\x95\xe9\xf5\xff\x14\xd1\xe3\xe6nY\xba\x13\x91@\xcb\xa6!\xfd\xc6;\xc22%R\x93\xb0pxV\x84\xc1\xa8d\x93\xfb\xdd\x81\xf1iL\x17\xe0)\x97\xe6p\xbbE\xfe\xeaM/B~\xf9\xdb\x02@4.o4\xd4(\xb7C\x8d\xa3\x0f\xe0\x80\xcc\xd8\x14\x03\xc2\xf9\xa8A1B\xcb\xe1p\x8bk:\xfe\x0fE\xe6@\x19/\x0f\xbc\x86\xd1\xda-\xc4\x04\xca\xaf\x7f\x923\x1fJz\x02kD\x02*\xf7&\xbe9!\xa5\xf9'
+        '''
+        private_key = RSA.importKey(ls) #对发送者的私钥进行处理
+        signer = PKCS1_v1_5.new(private_key) #通过发送者的私钥来计算出发送者要添加到改善信息中的私钥的数字签名信息
+        ls2=str(self.to_dict()).encode('utf8')
+        h = SHA.new(ls2)
+        ls3=binascii.hexlify(signer.sign(h))
+        ls4=ls3.decode('ascii')
+        return ls4 #这是添加有签名信息的要广播给区块链网络的信息
+
+
+#…… …… ……
+
+@app.route('/wallet/new', methods=['GET'])
+def new_wallet():
+    random_gen = Crypto.Random.new().read #得到随机字符串
+    '''
+    Crypto.Random.new().read调用了系统 os.urandom()函数，其解释如下：
+    来自博文：https://blog.csdn.net/a19990412/article/details/80934268
+    os.urandom(n)函数在python官方文档中做出了这样的解释
+    函数定位： Return a string of n random bytes suitable for cryptographic use. 
+    意思就是，返回一个有n个byte那么长的一个string，然后很适合用于加密。
+    然后这个函数，在文档中，被归结于os这个库的Miscellaneous Functions，意思是不同种类的函数（也可以说是混种函数） 
+    原因是： This function returns random bytes from an OS-specific randomness source. （函数返回的随机字节是根据不同的操作系统特定的随机函数资源。即，这个函数是调用OS内部自带的随机函数的。有特异性）
+    然后一开始的那个 u 其实我是以为是uniform（表示正态分布的），后来我发现文档中有这样的一句：The returned data should be unpredictable enough for cryptographic applications。 
+    注意到这个 unpredictable， 再结合之前所说的根据os底层来实现的，所以，u 应该是表示难以预料的意思。
+    '''
+    private_key = RSA.generate(1024, random_gen) #从随机字符串生成私钥
+    public_key = private_key.publickey() #从私钥生成对应成对的公钥（即公钥和私钥之间是有对应关系的）
+    ls=private_key.exportKey(format='DER')
+    '''
+    执行exportkey算法后，编码变成了byte字符串，
+    bytes字符串的组成形式，必须是十六进制数，或者ASCII字符：
+    此时是用 十六进 制来表示字符串的，因为\x这个转义字符转义的就是十六进制编码
+    b'0\x82\x02]\x02\x01\x00\x02\x81\x81\x00\xbac\xd7\x02\xfc~\x02\xc3\x85sL\xb3\x84n]\x8ds\x19\xab97\xe3\xb5a\r$\xd0\x93\xb0\xd1t\xe4\xe5\xde!\xfe\x9a\x15\xfbagw \x04u\x1b\x13u^\xc6l\xf4\x84\xad\x07\xcb\x12\xf9o\x0c\xea\xa7b\xbaC\xfb\x05H\x86\xad\xd8~\x8a\xc6\xe6\x11\x173\xb3\xa1\xaeY\x91CW\xaeK\xf0\xef\x81\x9d0\x92O\x01\xd5T\xc1p\x0fe>\xa9Q\x12\x07\xb00\xe4OMhKY\xfe\\\xe4Dx\x84Q\xacKH\xd4\x1d\xdd\xf3\x02\x03\x01\x00\x01\x02\x81\x80\x18~\xe8\x92\x0e\xe6\xec\xac\x0f\x8c\xd0\xa6\xc3\x1f\xd2\x11\xb5\xef\xc8\xad\xf3gl\xbd\xfd\x81:\x1c>\xdf\xb82 \xf7\xa9\x96\x11`\x142\x7f\xeb\x8a\xfc\xaa\xfbL\xfa^\xe3K\x0cs\xa7]\xdf\xd5u\x8c\x9f\xb0\xf3 \xa9J\xbc~\xcbA{\xd0\x11+8?\xb1\x96I*5\xc9\x11@\x86$\x90\xce\xaf\xfa\xbf\xc4`\xfc6\xb4r*\xf3P\x857\xd2\xdcl\\\x84\xe1\xb14\xea\x88\x8e\xb8\x04\xa4d?3B\xa6\xaf\xa2Y^\xe0\xce@\x89\x02A\x00\xd8.x\xbbE\xd4\x97\x9c\xc8z\xcd\xf3\xaa\x18*\xf1k\r\x80\x18\xff\xfb\xca\xdf$6^\xe4\xff\x84w\x93\xb9W<\x13et\xee\xba\xeeM{\xc6\xfc^\x97\n\xbf~\xe6C;\x05\xa3\x9bO\x05_;F]\xa0\r\x02A\x00\xdc\xb8\x9e\x82\xf6\x08\xf8\xaf\xba:\xe3/\x1c\x98\xbdz(\xdfi\xe7\xb3\xb8;\xac|\xa0>\xf4\xda\xef\xda\x18@T\xab\x832W\xf94\x88T\xb22]\xc4\x9e\xabH\x86\x0b\xbd-A\xfc\x97bD\xb0d\xa2\xab\xf5\xff\x02A\x00\xd4\x0e\xe9\xf1R3\x931\x81[-q\xaa\xd5\xa02F\xff\xec;\x19\xc7\xc5\x9e\x93\xe8\x1d\xb7\xe6\x89\xeb\xbee\xdd\x93\x99\xb798\x00\xf8G\xdbv;\x13\x12x\xc1\x95\xda\x8b\xf2v\xba\xa1[\xa7z^+\xcd%u\x02A\x00\x8dv\x19\xc9\x8f\x8crn\x95\xe9\xf5\xff\x14\xd1\xe3\xe6nY\xba\x13\x91@\xcb\xa6!\xfd\xc6;\xc22%R\x93\xb0pxV\x84\xc1\xa8d\x93\xfb\xdd\x81\xf1iL\x17\xe0)\x97\xe6p\xbbE\xfe\xeaM/B~\xf9\xdb\x02@4.o4\xd4(\xb7C\x8d\xa3\x0f\xe0\x80\xcc\xd8\x14\x03\xc2\xf9\xa8A1B\xcb\xe1p\x8bk:\xfe\x0fE\xe6@\x19/\x0f\xbc\x86\xd1\xda-\xc4\x04\xca\xaf\x7f\x923\x1fJz\x02kD\x02*\xf7&\xbe9!\xa5\xf9'
+    '''
+    ls2=binascii.hexlify(ls)
+    '''
+    hexlify()方法将上面用十六进制表示的字符编码，又换成了用ASCII字符表示的字符编码，仍然是byte字符串
+    结果如下：
+    b'3082025d02010002818100ba63d702fc7e02c385734cb3846e5d8d7319ab3937e3b5610d24d093b0d174e4e5de21fe9a15fb6167772004751b13755ec66cf484ad07cb12f96f0ceaa762ba43fb054886add87e8ac6e6111733b3a1ae59914357ae4bf0ef819d30924f01d554c1700f653ea9511207b030e44f4d684b59fe5ce444788451ac4b48d41dddf30203010001028180187ee8920ee6ecac0f8cd0a6c31fd211b5efc8adf3676cbdfd813a1c3edfb83220f7a996116014327feb8afcaafb4cfa5ee34b0c73a75ddfd5758c9fb0f320a94abc7ecb417bd0112b383fb196492a35c91140862490ceaffabfc460fc36b4722af3508537d2dc6c5c84e1b134ea888eb804a4643f3342a6afa2595ee0ce4089024100d82e78bb45d4979cc87acdf3aa182af16b0d8018fffbcadf24365ee4ff847793b9573c136574eebaee4d7bc6fc5e970abf7ee6433b05a39b4f055f3b465da00d024100dcb89e82f608f8afba3ae32f1c98bd7a28df69e7b3b83bac7ca03ef4daefda184054ab833257f9348854b2325dc49eab48860bbd2d41fc976244b064a2abf5ff024100d40ee9f152339331815b2d71aad5a03246ffec3b19c7c59e93e81db7e689ebbe65dd9399b7393800f847db763b131278c195da8bf276baa15ba77a5e2bcd25750241008d7619c98f8c726e95e9f5ff14d1e3e66e59ba139140cba621fdc63bc232255293b070785684c1a86493fbdd81f1694c17e02997e670bb45feea4d2f427ef9db0240342e6f34d428b7438da30fe080ccd81403c2f9a8413142cbe1708b6b3afe0f45e640192f0fbc86d1da2dc404caaf7f92331f4a7a026b44022af726be3921a5f9'
+    '''
+    ls3=ls2.decode('ascii')
+    '''
+    参见博文：https://blog.csdn.net/qq_40134903/article/details/80710882
+    decode(原字符串编码格式描述)
+    是将字符串从字符串的原编码格式转换成 unicode 编码。
+    在ls2.decode('ascii')这一句中，是将字符串ls2从ascii编码格式转换为：unicode编码。
+    现在ls3的值如下：（不再是byte字符串）
+    '3082025d02010002818100ba63d702fc7e02c385734cb3846e5d8d7319ab3937e3b5610d24d093b0d174e4e5de21fe9a15fb6167772004751b13755ec66cf484ad07cb12f96f0ceaa762ba43fb054886add87e8ac6e6111733b3a1ae59914357ae4bf0ef819d30924f01d554c1700f653ea9511207b030e44f4d684b59fe5ce444788451ac4b48d41dddf30203010001028180187ee8920ee6ecac0f8cd0a6c31fd211b5efc8adf3676cbdfd813a1c3edfb83220f7a996116014327feb8afcaafb4cfa5ee34b0c73a75ddfd5758c9fb0f320a94abc7ecb417bd0112b383fb196492a35c91140862490ceaffabfc460fc36b4722af3508537d2dc6c5c84e1b134ea888eb804a4643f3342a6afa2595ee0ce4089024100d82e78bb45d4979cc87acdf3aa182af16b0d8018fffbcadf24365ee4ff847793b9573c136574eebaee4d7bc6fc5e970abf7ee6433b05a39b4f055f3b465da00d024100dcb89e82f608f8afba3ae32f1c98bd7a28df69e7b3b83bac7ca03ef4daefda184054ab833257f9348854b2325dc49eab48860bbd2d41fc976244b064a2abf5ff024100d40ee9f152339331815b2d71aad5a03246ffec3b19c7c59e93e81db7e689ebbe65dd9399b7393800f847db763b131278c195da8bf276baa15ba77a5e2bcd25750241008d7619c98f8c726e95e9f5ff14d1e3e66e59ba139140cba621fdc63bc232255293b070785684c1a86493fbdd81f1694c17e02997e670bb45feea4d2f427ef9db0240342e6f34d428b7438da30fe080ccd81403c2f9a8413142cbe1708b6b3afe0f45e640192f0fbc86d1da2dc404caaf7f92331f4a7a026b44022af726be3921a5f9'
+    这时目测与byte字符串的内容本身没有区别。
+    '''
+    
+    #----------------------
+    
+    ls4=public_key.exportKey(format='DER')
+    ls5=binascii.hexlify(ls4)
+    ls6=ls5.decode('ascii')
+
+    response = {
+        'private_key': ls3,
+        'public_key': ls6
+    }
+
+    return jsonify(response), 200
+
+
+```
+
+【学习后记】
+都说人类对宇宙了解得越多，却发现新的问题也更多。这也许就是处在文明婴儿期的人类学习之路上必经的一个阶段吧。
+而我在我的学习之路上也遇到了这样的问题，今天的学习暴露出之前在第一阶段学习过程中，被忽略掉的很多基础知识，比如编码问题，当时完整的忽略了。
+于是得出一个想法：对于学习来说，没有知识是无用的。
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：http://www.941xue.com/content.aspx?id=1365   
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/261066516
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1EE411H7Mj/ 
+链接：https://pan.baidu.com/s/10c3ErEFxKnCN9-Bz56Mwpg 
+提取码：js8y
+
