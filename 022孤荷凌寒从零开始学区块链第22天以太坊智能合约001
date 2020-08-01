@@ -1,0 +1,202 @@
+孤荷凌寒自学python第108天
+区块链编程第22天以太坊智能合约001
+【主要内容】
+今天开始准备进行eth平台相关开发的准备工作，学习共用时44分钟。
+（此外整理作笔记花费了约80分钟）
+详细学习过程见文末学习过程屏幕录像。
+按昨天找到两个不同教程开始进行基础环境搭建。一个教程（昨天排序第二个教程）使用相对简单的方法，在本地不需要自己搭建任何eth网络节点，就可以直接进行合约开发部署，使用到了metamask(狐狸)钱包和Infura.io提供的在网免费ETH网络节点服务。另一个教程（昨天排序第一个教程）使用了相对复杂方法，需要在本地通过flask模块等搭建自己的测试用eth网络节点，需要安装一系列的python第三方库。
+今天两个教程的内容都没有尝试完成，一方面是因为访问国外网站的速度实在不行；二是操作上很多不熟悉，算是摸着石头过河。详细学习过程见文末学习过程屏幕录像。
+
+
+【学习笔记】
+一、安装Python第三方模块web3
+今天只在windows下进行了尝试，使用windows的cmd窗口安装：
+下面是执行的安装命令与安装过程记录。安装成功。
+·```
+ C:\WINDOWS\system32>pip install web3
+Collecting web3
+  Downloading https://files.pythonhosted.org/packages/24/f5/3d6e3ac1ec98dc736084a8f821b922517d5492714889bf29460d9d97bda0/web3-4.9.2-py3-none-any.whl (124kB)
+    100% |████████████████████████████████| 133kB 6.0kB/s
+Collecting lru-dict<2.0.0,>=1.1.6 (from web3)
+  Downloading https://files.pythonhosted.org/packages/00/a5/32ed6e10246cd341ca8cc205acea5d208e4053f48a4dced2b1b31d45ba3f/lru-dict-1.1.6.tar.gz
+Collecting websockets<7.0.0,>=6.0.0 (from web3)
+  Downloading https://files.pythonhosted.org/packages/0b/a9/d5446e3c9657652b94ec0b10d6c5528a64860d9ac44db185b5bc896b6c2d/websockets-6.0-cp36-cp36m-win_amd64.whl (84kB)
+    100% |████████████████████████████████| 92kB 6.1kB/s
+Requirement already satisfied: requests<3.0.0,>=2.16.0 in g:\w10_1\python\python365\lib\site-packages (from web3) (2.19.1)
+Collecting hexbytes<1.0.0,>=0.1.0 (from web3)
+  Downloading https://files.pythonhosted.org/packages/18/bd/21697d93ee2153c8c12253262b740f571e94341d4cee411504032fff3f56/hexbytes-0.1.0-py3-none-any.whl
+Collecting eth-abi<2.0.0,>=1.2.0 (from web3)
+  Downloading https://files.pythonhosted.org/packages/e9/ef/5af786a32ae7ac3aece6489400ea2cee6b2ede7a7b3955e6f55a59442d12/eth_abi-1.3.0-py3-none-any.whl
+Collecting cytoolz<1.0.0,>=0.9.0; implementation_name == "cpython" (from web3)
+  Downloading https://files.pythonhosted.org/packages/36/f4/9728ba01ccb2f55df9a5af029b48ba0aaca1081bbd7823ea2ee223ba7a42/cytoolz-0.9.0.1.tar.gz (443kB)
+    100% |████████████████████████████████| 450kB 3.2kB/s
+Collecting eth-hash[pycryptodome]<1.0.0,>=0.2.0 (from web3)
+  Downloading https://files.pythonhosted.org/packages/0d/d8/0f0c8d4ccaa4c8d25524fd1ed9f5c6d9551b52b74b973f338de3f0a23111/eth_hash-0.2.0-py3-none-any.whl
+Requirement already satisfied: pypiwin32>=223; platform_system == "Windows" in g:\w10_1\python\python365\lib\site-packages (from web3) (223)
+Collecting eth-utils<2.0.0,>=1.2.0 (from web3)
+  Downloading https://files.pythonhosted.org/packages/0b/9f/a8af6bddba9e669f1e712c28af182520c922cf6f6f12b360d2b8825f0784/eth_utils-1.6.0-py3-none-any.whl
+Collecting eth-account<0.4.0,>=0.2.1 (from web3)
+  Downloading https://files.pythonhosted.org/packages/a3/d8/6118bc0e00d6ec092bb02b012989d1018893755eb84da53266412ac359e3/eth_account-0.3.0-py3-none-any.whl
+Requirement already satisfied: chardet<3.1.0,>=3.0.2 in g:\w10_1\python\python365\lib\site-packages (from requests<3.0.0,>=2.16.0->web3) (3.0.4)
+Requirement already satisfied: urllib3<1.24,>=1.21.1 in g:\w10_1\python\python365\lib\site-packages (from requests<3.0.0,>=2.16.0->web3) (1.23)
+Requirement already satisfied: certifi>=2017.4.17 in g:\w10_1\python\python365\lib\site-packages (from requests<3.0.0,>=2.16.0->web3) (2018.8.24)
+Requirement already satisfied: idna<2.8,>=2.5 in g:\w10_1\python\python365\lib\site-packages\idna-2.7-py3.6.egg (from requests<3.0.0,>=2.16.0->web3) (2.7)
+Collecting parsimonious<0.9.0,>=0.8.0 (from eth-abi<2.0.0,>=1.2.0->web3)
+  Downloading https://files.pythonhosted.org/packages/02/fc/067a3f89869a41009e1a7cdfb14725f8ddd246f30f63c645e8ef8a1c56f4/parsimonious-0.8.1.tar.gz (45kB)
+    100% |████████████████████████████████| 51kB 48kB/s
+Collecting eth-typing<3.0.0,>=2.0.0 (from eth-abi<2.0.0,>=1.2.0->web3)
+  Downloading https://files.pythonhosted.org/packages/3e/8e/45c4779d98e43c166738a606b021f32a7a70c4c0d8c524c28f0703325409/eth_typing-2.1.0-py3-none-any.whl
+Collecting toolz>=0.8.0 (from cytoolz<1.0.0,>=0.9.0; implementation_name == "cpython"->web3)
+  Downloading https://files.pythonhosted.org/packages/14/d0/a73c15bbeda3d2e7b381a36afb0d9cd770a9f4adc5d1532691013ba881db/toolz-0.9.0.tar.gz (45kB)
+    100% |████████████████████████████████| 51kB 10kB/s
+Requirement already satisfied: pycryptodome<4,>=3.6.6; extra == "pycryptodome" in g:\w10_1\python\python365\lib\site-packages (from eth-hash[pycryptodome]<1.0.0,>=0.2.0->web3) (3.8.1)
+Requirement already satisfied: pywin32>=223 in g:\w10_1\python\python365\lib\site-packages (from pypiwin32>=223; platform_system == "Windows"->web3) (223)
+Collecting attrdict<3,>=2.0.0 (from eth-account<0.4.0,>=0.2.1->web3)
+  Downloading https://files.pythonhosted.org/packages/ef/97/28fe7e68bc7adfce67d4339756e85e9fcf3c6fd7f0c0781695352b70472c/attrdict-2.0.1-py2.py3-none-any.whl
+Collecting eth-keys<0.3.0,>=0.2.0b3 (from eth-account<0.4.0,>=0.2.1->web3)
+  Downloading https://files.pythonhosted.org/packages/1e/ea/9fcd1343b9a3615f20f7d456ec1b1d0c1c7a4d7bd3463b983fcd9946b6af/eth_keys-0.2.2-py3-none-any.whl
+Collecting eth-keyfile<0.6.0,>=0.5.0 (from eth-account<0.4.0,>=0.2.1->web3)
+  Downloading https://files.pythonhosted.org/packages/eb/a5/3615d100b62fbf20fe5d5c0d1d4d7326eac861d260b0cd2a36af2bf8ccb1/eth_keyfile-0.5.1-py3-none-any.whl
+Collecting eth-rlp<1,>=0.1.2 (from eth-account<0.4.0,>=0.2.1->web3)
+  Downloading https://files.pythonhosted.org/packages/56/4b/b309fb44dd9bb975e84f3d626392eec1eeed0108e55a51cd7dd8956a73ad/eth_rlp-0.1.2-py3-none-any.whl
+Requirement already satisfied: six>=1.9.0 in g:\w10_1\python\python365\lib\site-packages\six-1.11.0-py3.6.egg (from parsimonious<0.9.0,>=0.8.0->eth-abi<2.0.0,>=1.2.0->web3) (1.11.0)
+Collecting rlp<2,>=0.6.0 (from eth-rlp<1,>=0.1.2->eth-account<0.4.0,>=0.2.1->web3)
+  Downloading https://files.pythonhosted.org/packages/54/d4/3013691b8c4702cb1c3253be643f2cef12e9bee93e134694e6dab83f41e2/rlp-1.1.0-py2.py3-none-any.whl
+Building wheels for collected packages: lru-dict, cytoolz, parsimonious, toolz
+  Building wheel for lru-dict (setup.py) ... done
+  Stored in directory: C:\Users\pw\AppData\Local\pip\Cache\wheels\b7\ef\06\fbdd555907a7d438fb33e4c8675f771ff1cf41917284c51ebf
+  Building wheel for cytoolz (setup.py) ... done
+  Stored in directory: C:\Users\pw\AppData\Local\pip\Cache\wheels\88\f3\11\9817b001e59ab04889e8cffcbd9087e2e2155b9ebecfc8dd38
+  Building wheel for parsimonious (setup.py) ... done
+  Stored in directory: C:\Users\pw\AppData\Local\pip\Cache\wheels\b7\8d\e7\a0e74217da5caeb3c1c7689639b6d28ddbf9985b840bc96a9a
+  Building wheel for toolz (setup.py) ... done
+  Stored in directory: C:\Users\pw\AppData\Local\pip\Cache\wheels\f4\0c\f6\ce6b2d1aa459ee97cc3c0f82236302bd62d89c86c700219463
+Successfully built lru-dict cytoolz parsimonious toolz
+Installing collected packages: lru-dict, websockets, eth-hash, toolz, cytoolz, eth-typing, eth-utils, hexbytes, parsimonious, eth-abi, attrdict, eth-keys, eth-keyfile, rlp, eth-rlp, eth-account, web3
+Successfully installed attrdict-2.0.1 cytoolz-0.9.0.1 eth-abi-1.3.0 eth-account-0.3.0 eth-hash-0.2.0 eth-keyfile-0.5.1 eth-keys-0.2.2 eth-rlp-0.1.2 eth-typing-2.1.0 eth-utils-1.6.0 hexbytes-0.1.0 lru-dict-1.1.6 parsimonious-0.8.1 rlp-1.1.0 toolz-0.9.0 web3-4.9.2 websockets-6.0
+```
+
+二、安装Python第三方模块flask的扩展模块flask-restful
+只在windows下进行了尝试，使用windows的cmd窗口安装：
+下面是执行的安装命令与安装过程记录。安装成功。
+·```
+ C:\WINDOWS\system32>pip install flask-restful
+Collecting flask-restful
+  Downloading https://files.pythonhosted.org/packages/17/44/6e490150ee443ca81d5f88b61bb4bbb133d44d75b0b716ebe92489508da4/Flask_RESTful-0.3.7-py2.py3-none-any.whl
+Requirement already satisfied: Flask>=0.8 in g:\w10_1\python\python365\lib\site-packages (from flask-restful) (1.0.2)
+Collecting pytz (from flask-restful)
+  Downloading https://files.pythonhosted.org/packages/3d/73/fe30c2daaaa0713420d0382b16fbb761409f532c56bdcc514bf7b6262bb6/pytz-2019.1-py2.py3-none-any.whl (510kB)
+     |████████████████████████████████| 512kB 17kB/s
+Collecting aniso8601>=0.82 (from flask-restful)
+  Downloading https://files.pythonhosted.org/packages/85/58/1e804d6d53435b1b2241036056360575640b69a332e7ead086a04bd5ad95/aniso8601-6.0.0-py2.py3-none-any.whl (41kB)
+     |████████████████████████████████| 51kB 43kB/s
+Requirement already satisfied: six>=1.3.0 in g:\w10_1\python\python365\lib\site-packages\six-1.11.0-py3.6.egg (from flask-restful) (1.11.0)
+Requirement already satisfied: click>=5.1 in g:\w10_1\python\python365\lib\site-packages (from Flask>=0.8->flask-restful) (7.0)
+Requirement already satisfied: Jinja2>=2.10 in g:\w10_1\python\python365\lib\site-packages (from Flask>=0.8->flask-restful) (2.10)
+Requirement already satisfied: Werkzeug>=0.14 in g:\w10_1\python\python365\lib\site-packages (from Flask>=0.8->flask-restful) (0.15.2)
+Requirement already satisfied: itsdangerous>=0.24 in g:\w10_1\python\python365\lib\site-packages (from Flask>=0.8->flask-restful) (1.1.0)
+Requirement already satisfied: MarkupSafe>=0.23 in g:\w10_1\python\python365\lib\site-packages (from Jinja2>=2.10->Flask>=0.8->flask-restful) (1.0)
+Installing collected packages: pytz, aniso8601, flask-restful
+Successfully installed aniso8601-6.0.0 flask-restful-0.3.7 pytz-2019.1
+
+三、安装Python第三方模块flask的扩展模块flask-marshmallow
+只在windows下进行了尝试，使用windows的cmd窗口安装：
+下面是执行的安装命令与安装过程记录。安装失败。
+·```
+ C:\WINDOWS\system32>pip install flask-marshmallow
+Collecting flask-marshmallow
+  Downloading https://files.pythonhosted.org/packages/68/4e/7456ef40aeb59e6332e7481705e2b2f27b01772710d9ea1839c2f6379dc2/flask_marshmallow-0.10.1-py2.py3-none-any.whl
+Collecting marshmallow>=2.0.0 (from flask-marshmallow)
+  WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ReadTimeoutError("HTTPSConnectionPool(host='pypi.org', port=443): Read timed out. (read timeout=15)",)': /simple/marshmallow/
+  ERROR: Could not find a version that satisfies the requirement marshmallow>=2.0.0 (from flask-marshmallow) (from versions: none)
+ERROR: No matching distribution found for marshmallow>=2.0.0 (from flask-marshmallow)
+
+四、使用谷歌浏览器离线方式安装metamask（狐狸）钱包插件
+主要参看了以下博文作为教程：
+https://blog.csdn.net/shebao3333/article/details/80112376
+（一）下载离线数据包：
+下载地址：https://github.com/MetaMask/metamask-extension/releases
+选择谷歌浏览器版本的。
+（二）解压数据包
+（三）在谷歌浏览器的扩展插件中选择已解压的包进行安装。
+（四）安装完成后创建一个新的钱包
+这个钱包也是以太坊的一个节点，因此拥有一个私钥，一个公钥地址，私钥是使用助记词来协助记忆的。因为我是注册了一个测试地址，因此没有妥善保管这些内容，如果是在主网上使用数字货币钱包一定要离线保存。
+（五）选择metamask钱包的网络为：Ropsten Test Net 测试用网络
+（六）到https://faucet.metamask.io/申请免费的测试用eth代币，我申请到三个eth测试用代币。
+
+五、使用教程二的方法到infura申请一个在线测试用eth节点
+infura.io网站打开速度非常慢，而且需要邮箱确认，然后申请新建一个项目，然后就会得到如：
+
+ropsten.infura.io/FE2Gfedcm3tfed3
+
+这样的测试用以太坊节点。具体操作过程非常复杂，且我在电脑浏览器页端还没有申请成功，结果 是在邮箱确认时使用手机打开邮箱中的链接才创建一个项目成功，不过创建成功后侄是可以在电脑浏览器上看到。
+
+具体过程见的我学习过程屏幕录像。
+
+为了追赶未来，终身学习，终身进步，我创建了【就是要学 终身成长】社群，欢迎立志于终身学习，终身成长的朋友们加入，共同交流学习。Qq群号码：646854445
+或访问：www.941xue.com
+
+【关于坚持自学的例行说明】
+最后例行说明下，我为什么要坚持自学。
+
+“如果我不曾见过太阳，我本可以忍受黑暗，然而阳光已使我的荒凉，成为更新的荒凉。”
+——艾米莉·狄金森
+如果要问我对自己的前半生如何看待时，我想昨天和今天的答案都将完全不同。
+昨天的我，生活在荒凉的满意之中，自觉怡然自得，拿着包身包月的工资，听着仁慈的命令，过着几乎一成不变的生活；时而与周遭的人儿和睦互往，时而唇舌相抵斤斤计较，演出着生活的鸡毛蒜皮，工作的吹拉弹唱；忘我，忘我，才能融入这平和无奇的乐章中，迈着细碎的步伐，原地踏步。那时的我觉得这就是悠然自得的听天由命的平凡人生，也就是我的宿命了。
+可是某一天，我见到了不一样的太阳以及太阳下不一样的人生光景——那并不荒凉。
+今天的我，生活在荒凉的痛苦之中，自觉渴望改变，迈着不知所措的步伐，看着流逝的年华，睁着悔恨错失一切的双眼… …
+我知道我将再无法回到过去的我，只有改变才是唯一正确的方向。
+
+一、为什么一把年纪还在学习
+放弃很多去聚餐，去HI歌，去游玩，去看电影，去追剧……的时间，然后进行着这个年纪似乎已不应当再进行的学习，引来身边人们无尽的不解与鄙夷甚至可怜……
+但我不想放弃终身学习的誓言。
+因为——
+我对我今天的生活现状并不认同！
+罗伯特清崎告诉过我们，反省自己当下的生活是不是自己想要的，这难道不是最好的动力与答案？
+走过了大半生，然后才发现曾经、当下所正在进行的人生并不是自己想要的，那是一种怎样的体验？
+只有心中真切的感受才能回答这个问题，而任凭再丰富的语言也是无法描绘出来的。
+经历半生的跋涉，却发现走得并不正确，有多少人有勇气承认自己过去的一切都是错误的呢？
+而我愿意告诉过去的我：“你错了！”
+那么已经历半生错误，年岁之大又压于头顶，还有希望从这架的梯子的半端重新爬下，再蹒跚着爬上另一架梯子吗？
+我宁愿相信还有希望！
+这便是我为什么要继续坚持终身学习下去的全部理由。
+
+二、这个年纪还在学这些技术有意义吗
+纯的技术对这把年纪其实已没有意义。
+但兴趣可以超越意义。
+但技术可以引来思想的变革，这才是意义。
+投资自己的头脑 ，改革自己的思想，这是最保值，更长远的投资，过去我从来没有投资过，错过太多，那就从投资自己头脑开始吧。
+罗伯特清崎告诉我们，真正的富有是时间的富有；真正的自由是可以决定自己愿意做什么的自由。
+因为我愿意做我兴趣所在的事，所以我希望我有自由选择的那一天，虽然今天离那一天可能还是那么遥远，但我愿意相信，每天多赶几步，离希望就更近一步。
+再者，虽然我可能再已无法完全完整的掌握这些技术了，但技术本身却可以启迪心的觉醒，激发灵感，那么只要多了解一点，我相信我将离那个正离我而去跑得越来越快的未来更近一点，不至于被未知的那个未来抛弃得太远。
+于是我怎能放弃追逐求索的步伐？
+我要坚信：感觉太迟的时候，也许还不算太迟。
+
+感谢一直以来关注我，鼓励我的你！
+若不嫌弃这一个到了高龄才长大的可笑可叹的我，请不吝赐教。
+我的q号是：578652607，敬候你的指点。
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：http://www.941xue.com/content.aspx?id=1392  
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/262545864 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1tE41177mm/ 
+
+
