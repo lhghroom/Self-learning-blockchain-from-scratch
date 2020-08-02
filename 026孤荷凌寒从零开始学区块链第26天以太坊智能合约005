@@ -1,0 +1,242 @@
+孤荷凌寒自学第112天
+区块链编程第26天以太坊智能合约005
+【主要内容】
+今天先继续理解使用Solidity编程语言来发布一个智能合约的基本概念，将昨天理解得不很透彻的地方通过阅读其它博文进行深入理解，学习共用时44分钟。
+（此外整理作笔记花费了约86分钟）
+今天回到正轨，开始继续使用remix在线编辑器进行我的第一个eth智能合约在eth网络上的布署，不过一般知识都是欺负初学者，果不其然，这简单的一个操作，就踩了巨多坑，详情见我的学习过程录像。
+详细学习过程见文末学习过程屏幕录像。
+
+【学习笔记】
+一、今天总结的solidity语言编写合约的基本组成内容
+一个合约内容的基本组成有以下成分：
+1.在合约主体之前的第一部分：声明solidity版本号
+这非常重要，今天算是学习eth智能合约以来，第一天真正实战，而踩的坑居然主要就来自于这个版本！
+声明的样式是：
+pragma solidity ^0.4.0;
+这种写法在solidity的版本号之前加上了^符合，表示支持大于0.4.0以上的所有版本（其实说完全支持是不可能的，到一定版本，solidity的语言规范就不一样了。）
+pragma solidity 0.4.14;
+这种写法表示固定支持一种solidity版本。
+
+2.在合约主体之前的第二部分：声明对其它solidity文件(后缀名为：*.sol)
+同Python语言一样，如果要在一个sol文件中使用其它solidity文件内部的内容，则也是需要使用import关键词引用其它sol文件的。
+格式如下：
+import "b.sol";
+//注意此处，和python不同，引用外部文件时，要加引号。且必须加文件后缀名。
+
+3.合约主体组成内容的第一种对象：
+状态变量
+状态变量用于记录整个合约内部代码的一些信息，主要是被调用（一次时）的合约当前的一些状态信息。
+如，之前研究的智能合约代码代码中的状态变量声明如下：
+string opinion;
+//这用于记录节点的发言信息，因为这个合约就是用来让节点发表意见的
+
+3.合约主体组成内容第二种对象：
+合约内的函数方法
+函数方法的声明与js语言非常相似，但又有所不同：
+function isApproved(address _soapboxer) public view returns (bool approved) {
+        return approvedSoapboxer[_soapboxer];
+    } 
+定义一个函数仍然使用关键词：function
+后面定义函数名称，用括号指明形式参数，这与js语言非常类似。但不同的是，solidity语言也有修饰词（目前我只知道public这一个函数修饰词）。
+但修饰词是放在函数名称及形参括号之后的。
+此外还可以在函数声明后，指明函数经过运算后的返回值类型
+如上面例子中的：
+returns (bool approved)
+而且在returns之后，也可以加上Public等修饰关键词，这个的作用还没有了解。
+
+4.合约主体内容第三种对象
+结构类型
+就是struct关键字定义的自定义数据类型。
+
+5.合约主体内容的第四种对象
+事件
+solidity语言的事件从各个方向看都与函数非常相似，但定义关键词作用的是event，而且没有函数体内部的代码，只有定义部分，且没有返回值指定。
+如：
+event OpinionBroadcast(address _soapboxer, string _opinion);
+//上面构建了一个事件，当节点发表意见时，此事件被激活，网络中的其它节点可以监听此事件以了解当前发生的这个事务(多数时候是交易)
+与其它编程语言通用意义上的“事件”不同，solidity的事件是需要别的函数体内部的代码显式通知而激发反应的。它的事件从来不会自动发生，都是要告知才被“记录”，进而整个区块链网络（如另一个节点）才可以对此事件进行监听，以获取事件定义中指明的那些形参的值（这些值是别的函数内部代码显式通知事件发生时传递给这个事件的）。
+在函数内部代码显式通知上一个定义事件发生的例子：
+emit OpinionBroadcast(msg.sender, opinion);
+注意前面学习到的emit在不同版本的solidity中不一样，如果是小于5.0的版本，那么，就不用使用emit关键词。
+
+6.函数主体内容第五种对象
+函数修改器
+这种对象比较新奇，在其它我所学过的编程语言中，我没有专门了解过。
+在之前研究的solidity合约代码中，此种对象也没有出现 。
+例子如下：
+address public owneraddress;
+int a=0;
+
+modifier myowner(){
+//这就是函数修改器，其实就是自定义的函数修饰器？
+	//先在这儿对使用此修改器的函数进行通用功能的操作，如进行检验
+	require(msg.sender==owneraddress);
+	//上一句我理解为一个判断条件语句，就是说，执行真正使用此修改器的函数前先要求检查下，是否当前调用合约的节点地址与预设的地址owneraddress是否一致。此要求检查通过后，真正使用此修改器的函数才会执行它自己函数体内的代码，如果没有通过就不会执行那个函数体中的语句了。
+	_;
+	//上一行中的短横用于“指代”真正使用此修改器的函数的函数体中的全部语句。
+}
+
+function myfunction() public myowner{
+	//这个定义的函数除了使用Public修改词之外，还使用了myowner这个修改器
+	//这意味着，函数myfunction中函数体的中代码在执行之前其它会去先执行函数修改器myowner中的代码，myowner中要求进行的检查 通过后，然后才会执行本函数体中的语句。
+	//下一行语句起才是本函数体的正式内容：
+	a+=1;
+
+}
+
+
+二、初次使用remix在线编辑器
+编辑器地址：https://remix.ethereum.org/
+来自腾讯云的教程比较详尽：https://cloud.tencent.com/developer/article/1182404
+不过非常遗憾，今天一准备按教程真正开始使用remix编辑器，却发现它——改版了，和之前的界面有了非常大的变化 ，好在，我使出浑身解数还没有被吓倒，发现了它的每一个功能所在。
+不过却忽略了对solidity编译器版本的选择，现在的新版本编辑器默认使用0.5.x的solidity编译器版本，而我学习的这个solidity文件却使用的是0.4.x的版本，不同的版本之间，代码规范的变化 已经出现非常多的区别了，于是我一点“编译”，报错就出现了五六处，真是要吓退新人的节奏，而我一开始并没有注意编译器版本的选择问题，于是去傻傻地去改代码，才发现了版本变化 造成的语言变化 之大，也算是有所收获，然而不管我怎么改，都不能完全消灭报错，方才回过神来，将编译器版本，修改成了：0.4.14+commit.c2215d46
+所有报错方才消失。这儿就白白踩坑浪费了近20分钟！
+具体过程见我学习过程的屏幕录像，链接在文末。
+此外不同编译器版本的官方英文文档地址：https://solidity.readthedocs.io/en/v0.5.9/
+
+三、成功发布第一个合约
+也算是历尽千辛，终于将代码修正如下：
+```
+pragma solidity ^0.4.0;
+//0.4.14+commit.c2215d46
+contract SoapBox {
+    // Our 'dict' of addresses that are approved to share opinions   
+    //我们批准分享意见的地址的“字典” 
+    mapping (address => bool) approvedSoapboxer;
+    //上一个变量用于存储已经支付了0.02Wei费用的节点地址，但实际存储的是一个对照 表，即地址：TRUE/FALSEp 这样的对照结构数据，用于标记一个节点是否已经支付了0.02Wei的费用。
+
+    string opinion;
+    //这用于记录节点的发言信息，因为这个合约就是用来让节点发表意见的
+     
+    // Our event to announce an opinion on the blockchain  
+	//我们的事件发布对区块链的意见 
+ 
+    event OpinionBroadcast(address _soapboxer, string _opinion);
+    //上面构建了一个事件，当节点发表意见时，此事件被激活，网络中的其它节点可以监听此事件以了解当前发生的这个事务(多数时候是交易)
+
+    // This is a constructor function, so its name has to match the contract   
+    //下面这是一个构造函数，所以它的命名必须与合约的命名相匹配 
+    function SoapBox() public {
+    }
+    
+    // Because this function is 'payable' it will be called when ether is sent to the contract address.
+	//因为这个函数是“支付”，所以当以太网被发送到合约地址时将被调用。 
+    function() public payable{
+        // msg is a special variable that contains information about the transaction
+		// msg是一个特殊变量，包含有关交易的信息 
+		//msg.value是检查当前节点发送的费用，必须要大于等于0.02Wei才行。
+        if (msg.value > 20000000000000000) {  
+            //if the value sent greater than 0.02 ether (in Wei)
+			//如果发送的值大于0.02 ether（在Wei中） 
+            // then add the sender's address to approvedSoapboxer 
+			//然后将发件人的地址添加到approvedSoapboxer 
+			//下一行的准确解释是:当前节点如果确定支付了0.02Wei费用，那么此节点就可以在此合约框架下发表意见了。
+            approvedSoapboxer[msg.sender] =  true;
+        }
+    }
+    
+    
+    // Our read-only function that checks whether the specified address is approved to post opinions.
+	//我们的只读函数，用于检查指定地址是否被批准发布意见。 
+	//下面这个函数方法访问指定的节点地址是否已经支付过0.02Wei的费用了。
+    function isApproved(address _soapboxer) public returns (bool approved) {
+        return approvedSoapboxer[_soapboxer];
+    } 
+    
+    // Read-only function that returns the current opinion
+	//返回当前意见的只读函数 
+	//应当是返回当前节点（msg表示调用此合约的当前节点）已经发布的意见内容本身。
+    function getCurrentOpinion() public returns(string) {
+        return opinion;
+    }
+    //Our function that modifies the state on the blockchain
+    //我们的函数修改了区块链上的状态 
+	//此函数方法让当前调用合约的节点进行发表意见
+    function broadcastOpinion(string _opinion) public returns (bool success) {
+        // Looking up the address of the sender will return false if the sender isn't approved
+		//如果发件人未获批准，查找发件人的地址将返回false 
+		//下一行代码检查，当前节点（调用此合约的节点用msg表示）是否已经支付过
+        if (approvedSoapboxer[msg.sender]) {
+            //传递意见内容
+            opinion = _opinion;
+			//引发前面定义的事件，以向整个网络广播此事务
+            OpinionBroadcast(msg.sender,opinion);
+			//emit 关键字的详细解释：
+            //https://blog.csdn.net/huhaoxuan2010/article/details/80088879
+            return true;
+            
+        } else {
+			//如果此节点还没有支付0.02	Wei,则不能发表意见
+            return false;
+        }
+        
+    }
+}
+```
+按示例的流程（使用博文：https://blog.csdn.net/mongo_node/article/details/85043799）的教程，终于成功发布了第一个合约。
+发布成功需要大概一两分钟，这时可以到eth的测试网络（因为是在测试网络中进行测试的）的
+https://ropsten.etherscan.io/tx/
+在最后输入这次eth网络交易（就是发起创建（部署）一个新合约）的区块的hash编码，即可，我的链接是：
+https://ropsten.etherscan.io/tx/0x5d55b7ba2c1b618f650811253f5646bb49693760339c379cce551955989d2b42
+（这个链接在remix在线编辑器中成功发布成功后，就会自动出现 。）
+进入链接页面后，可以看到，以下内容：
+Transaction Hash:
+0x5d55b7ba2c1b618f650811253f5646bb49693760339c379cce551955989d2b42 
+上一行是本次eth网络上的交易（就是本次发布新合约的行为）所在的区块的hash值。
+Status:
+Success
+上一行，标识了当前部署合约的的状态，Success表示 我已布置成功。
+Block:
+5847869 2 Block Confirmations
+上一行注明使用了多少块，当前区块的index值，我的理解，不知是否正确。
+Timestamp:
+44 secs ago (Jun-23-2019 08:03:05 AM +UTC)
+上一行是本区块的时间戳。
+From:
+0x5227c3ef48b5a1bcf784593e46d9579d26a3b592 
+上一行标记了发起交易（布置本合约）的eth网络节点的地址，就是我的狐狸钱包的地址。
+To:
+[Contract 0xfbf6d79f50219505ff8e10b2f0ca1435a1210ffcCreated] 
+上一行，就是部署成功的合约在eth网络上的节点地址，也就是说合约本身在eth网络上作为一个节点来存在的。
+Value:
+0 Ether ($0.00)
+上一行表示本次交易(指对于eth网络来说)from（发送方）向to(接收方)发送了多少eth代币。
+Transaction Fee:
+0.000367749 Ether ($0.000000)
+Gas Limit:
+367,749
+________________________________________
+Gas Used by Transaction:
+367,749 (100%)
+上面的内容标记了本次交易油费及油费使用比例。
+
+其中新部署成功的智能合约在eth网络上的节点地址是后续学习使用Python来进行交互的关键信息。
+
+【学习后记——学习得慢是怎么回事？】
+非常感谢关注并帮助我学习的朋友，其中很感激有心的朋友给我提出来，你这学习进度太慢了吧！是的，比较慢，不过要说编程学习近20年的经历来看，我从编程世界的完全门外汉走到今天，每一步是很缓慢且不断踩坑，但是这是完全自学必经的道路，那么不自学不是更好吗？我非常赞同一句话——真正的学习就是自学。
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：http://www.941xue.com/content.aspx?id=1406
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/264679996
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/av93954194
+
