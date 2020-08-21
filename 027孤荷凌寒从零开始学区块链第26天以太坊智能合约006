@@ -1,0 +1,224 @@
+孤荷凌寒自学第113天
+区块链027以太坊智能合约006
+
+【主要内容】
+今天开始使用python代码来通过infura.io网站提供的免费托管节点来连接上eth网络，然后对自己发布的智能合约进行访问操作，但连第一步都没有完成。学习共用时34分钟。
+（此外整理作笔记花费了约96分钟）
+因为来自remix的在线编辑器对中文支持不好，于是就想在vscode中能够编辑sol文件要多好于是就先进行了尝试，然后就开始写Python代码来调用自己的合约，于是又踩了巨多坑，也没有进行测试。
+详细学习过程见文末学习过程屏幕录像。
+
+【学习笔记】
+一、vscode编辑器是支持进行solidity文件进行编辑的，甚至可以进行编译
+只需要在vscode界面的左侧选择“扩展”，搜索“solidity”，选择其中一个叫做“solidity0.50”的扩展安装即可。
+这时vscode就可以对solidity文件进行直接编辑了，有语法高亮提示等。
+但还不能进行solidity文件的编译执行，需要安装solidity的编译包，但我只是想对sol文件进行编辑罢，就没有安装编译器。
+此外找到了web3.py的官方文档：https://web3py.readthedocs.io/en/stable/middleware.html
+
+二、准备书写第一个可以与eth网络上的自己发布的合约进行交互的py程序
+仍然参照这篇博文：https://blog.csdn.net/mongo_node/article/details/85043799
+原代码如下：
+import time
+from web3 import Web3, HTTPProvider
+
+contract_address="0xfbf6d79f50219505ff8e10b2f0ca1435a1210ffc"  #提供服务的合约地址，就是我自己创建（部署）的智能合约
+wallet_private_key="D8EF07D32389148E9DA6C54237BD5A39C92917D59340AA5D6064485C01E96FB2" #狐狸钱包的私钥
+wallet_address="0x5227C3EF48B5A1bcF784593e46D9579D26a3b592" #狐狸钱包的公钥，就是钱包地址，是eth网络上的一个节点。
+w3 = Web3(HTTPProvider("ropsten.infura.io/v3/79124269dc454e47bee73f964c971d3c")) #里面的参数字符串是在infura.io网站上申请 到的一个节点地址。
+
+def send_ether_to_contract(amount_in_ether):
+    amount_in_wei = w3.toWei(amount_in_ether,'ether')
+    nonce = w3.eth.getTransactionCount(wallet_address) #此处vscode提示eth下层对象不存在，是误报错误，因为web3类在定义时，它的下层对象是通过代码软性加载的，所以vscode无法检测到。
+    '''
+    web3类软性加载它的一些下层对象的代码如下：所以vscode通过静态代码去查找这些下层以对象是找不到的，所以报错。
+        for module_name, module_class in modules.items():
+            module_class.attach(self, module_name)
+    module_class中就包含了包括eth在内的多个web3类的下层对象。
+    以上是花了大量时间查找思考 后的个人见解，可能有错，恳请高手指点。
+    '''
+
+    txn_dict={
+        'to': contract_address,
+        'value': amount_in_wei,
+        'gas': 2000000,
+        'gasPrice': w3.toWei('40','gwei'),
+        'nonce': nonce,
+        'chainId': 3
+    }
+
+    signed_txn = w3.eth.account.signTransaction(txn_dict, wallet_private_key)
+    txn_hash = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+    txn_receipt = None
+    count = 0
+
+    while txn_receipt is None and (count < 30):
+        txn_receipt = w3.eth.getTransactionReceipt(txn_hash)
+        print(txn_receipt)
+        time.sleep(10)
+
+    if txn_receipt is None:
+        return {'status':'failed','error':'timeout'}
+
+    return {'status':'added','txn_receipt':txn_receipt}
+
+而且vscode编辑器，还有个毛病，明明是w3.eth处报错，却连def定义语句处还先报错，害了半天没有定位问题所在（具体可见我的学习过程屏幕录像）
+正因为这儿耗费了时间，于是没有完成后续测试。
+于是就想通过
+web3.eth.blockNumber
+代码来验证是否通过代理节点连接上了eth网络，并获取 最后一个区块的编号 id，测试代码被简化了：
+from web3 import Web3
+ 
+web3 = Web3(Web3.HTTPProvider("ropsten.infura.io/v3/79124269dc454e47bee73f964c971d3c"))
+print(web3.eth.blockNumber)
+却直接报错：
+Traceback (most recent call last):
+  File "i:\MAKEAPP\python\Python365\边学习边测试文件夹\自学PYTHON部分\第二阶段\0113自学python_区块链027\try2.py", line 4, in <module>
+    print(web3.eth.blockNumber)
+  File "G:\w10_1\python\python365\lib\site-packages\web3\eth.py", line 102, in blockNumber
+    return self.web3.manager.request_blocking("eth_blockNumber", [])
+  File "G:\w10_1\python\python365\lib\site-packages\web3\manager.py", line 109, in request_blocking
+    response = self._make_request(method, params)
+  File "G:\w10_1\python\python365\lib\site-packages\web3\manager.py", line 92, in _make_request
+    return request_func(method, params)
+  File "cytoolz/functoolz.pyx", line 232, in cytoolz.functoolz.curry.__call__
+  File "G:\w10_1\python\python365\lib\site-packages\web3\middleware\formatting.py", line 50, in apply_formatters
+    response = make_request(method, params)
+  File "G:\w10_1\python\python365\lib\site-packages\web3\middleware\gas_price_strategy.py", line 18, in middleware
+    return make_request(method, params)
+  File "cytoolz/functoolz.pyx", line 232, in cytoolz.functoolz.curry.__call__
+  File "G:\w10_1\python\python365\lib\site-packages\web3\middleware\formatting.py", line 50, in apply_formatters
+    response = make_request(method, params)
+  File "G:\w10_1\python\python365\lib\site-packages\web3\middleware\attrdict.py", line 18, in middleware
+    response = make_request(method, params)
+  File "cytoolz/functoolz.pyx", line 232, in cytoolz.functoolz.curry.__call__
+  File "G:\w10_1\python\python365\lib\site-packages\web3\middleware\formatting.py", line 50, in apply_formatters
+    response = make_request(method, params)
+  File "G:\w10_1\python\python365\lib\site-packages\web3\middleware\normalize_errors.py", line 9, in middleware
+    result = make_request(method, params)
+  File "cytoolz/functoolz.pyx", line 232, in cytoolz.functoolz.curry.__call__
+  File "G:\w10_1\python\python365\lib\site-packages\web3\middleware\formatting.py", line 50, in apply_formatters
+    response = make_request(method, params)
+  File "cytoolz/functoolz.pyx", line 232, in cytoolz.functoolz.curry.__call__
+  File "G:\w10_1\python\python365\lib\site-packages\web3\middleware\formatting.py", line 50, in apply_formatters
+    response = make_request(method, params)
+  File "G:\w10_1\python\python365\lib\site-packages\web3\middleware\exception_retry_request.py", line 80, in middleware
+    return make_request(method, params)
+  File "G:\w10_1\python\python365\lib\site-packages\web3\providers\rpc.py", line 68, in make_request
+    **self.get_request_kwargs()
+  File "G:\w10_1\python\python365\lib\site-packages\web3\utils\request.py", line 26, in make_post_request
+    response = session.post(endpoint_uri, data=data, *args, **kwargs)
+  File "G:\w10_1\python\python365\lib\site-packages\requests\sessions.py", line 559, in post
+    return self.request('POST', url, data=data, json=json, **kwargs)
+  File "G:\w10_1\python\python365\lib\site-packages\requests\sessions.py", line 498, in request
+    prep = self.prepare_request(req)
+  File "G:\w10_1\python\python365\lib\site-packages\requests\sessions.py", line 441, in prepare_request
+    hooks=merge_hooks(request.hooks, self.hooks),
+  File "G:\w10_1\python\python365\lib\site-packages\requests\models.py", line 309, in prepare
+    self.prepare_url(url, params)
+  File "G:\w10_1\python\python365\lib\site-packages\requests\models.py", line 383, in prepare_url
+    raise MissingSchema(error)
+requests.exceptions.MissingSchema: Invalid URL 'mainnet.infura.io/v3/79124269dc454e47bee73f964c971d3c': No
+schema supplied. Perhaps you meant http://mainnet.infura.io/v3/79124269dc454e47bee73f964c971d3c?
+
+这完全不知道为何，连接不上我从infura.io上申请到的节点地址。
+又将代码修改如下：
+from web3 import Web3, HTTPProvider
+from web3.contract import ConciseContract
+from web3.middleware import geth_poa_middleware
+
+INFURA_API_KEY = "79124269dc454e47bee73f964c971d3c"
+
+ACCOUNT_PASSWORD = "3c79be182e7448a98dc0ed86f4c7cdec"
+
+w3 = Web3(HTTPProvider('https://ropsten.infura.io/{}'.format(INFURA_API_KEY)))
+
+w3.middleware_stack.inject(geth_poa_middleware, layer=0)
+
+print(w3.eth.blockNumber)
+这次参照了多篇博文的描述，加上了infura.io提供的projectID与password。然而事实上，代码中也根本没有用上password，不是？（因为在infura.io界面我没有设置要求必须使用密码。）
+不过却神奇般的成功了，输出了最后一个区块的编号 id：
+5854380
+
+这时，仿佛神灵助我一般，我恍然大悟，仔细对比两段代码的不同，发现：
+最开始的代码：
+"ropsten.infura.io/v3/79124269dc454e47bee73f964c971d3c"
+与现在的代码：
+'https://ropsten.infura.io/{}'.format(INFURA_API_KEY)
+所不同的地方在于，网络格式头的不同：
+上一行代码，没有指明网络协议，则会默认为：http://
+而下一行代码，明确指明了网络协议，正确的就应当是：https://
+正可谓简直要仔细，因为这到处都是坑，而且还很深！
+
+【学习后记】
+最后完整修改的代码如下，没有进行尝试：
+```
+#来自博文：https://blog.csdn.net/mongo_node/article/details/85043799
+import time
+from web3 import Web3, HTTPProvider
+
+contract_address="0xfbf6d79f50219505ff8e10b2f0ca1435a1210ffc"  #提供服务的合约地址，就是我自己创建（部署）的智能合约
+wallet_private_key="D8EF07D32389148E9DA6C54237BD5A39C92917D59340AA5D6064485C01E96FB2" #狐狸钱包的私钥
+wallet_address="0x5227C3EF48B5A1bcF784593e46D9579D26a3b592" #狐狸钱包的公钥，就是钱包地址，是eth网络上的一个节点。
+w3 = Web3(HTTPProvider("https://ropsten.infura.io/v3/79124269dc454e47bee73f964c971d3c")) #里面的参数字符串是在infura.io网站上申请 到的一个节点地址。
+
+def send_ether_to_contract(amount_in_ether):
+    amount_in_wei = w3.toWei(amount_in_ether,'ether')
+    nonce = w3.eth.getTransactionCount(wallet_address) #此处vscode提示eth下层对象不存在，是误报错误，因为web3类在定义时，它的下层对象是通过代码软性加载的，所以vscode无法检测到。
+    '''
+    web3类软性加载它的一些下层对象的代码如下：所以vscode通过静态代码去查找这些下层以对象是找不到的，所以报错。
+        for module_name, module_class in modules.items():
+            module_class.attach(self, module_name)
+    module_class中就包含了包括eth在内的多个web3类的下层对象。
+    以上是花了大量时间查找思考 后的个人见解，可能有错，恳请高手指点。
+    '''
+
+    txn_dict={
+        'to': contract_address,
+        'value': amount_in_wei,
+        'gas': 2000000,
+        'gasPrice': w3.toWei('40','gwei'),
+        'nonce': nonce,
+        'chainId': 3
+    }
+
+    signed_txn = w3.eth.account.signTransaction(txn_dict, wallet_private_key)
+    txn_hash = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+    txn_receipt = None
+    count = 0
+
+    while txn_receipt is None and (count < 30):
+        txn_receipt = w3.eth.getTransactionReceipt(txn_hash)
+        print(txn_receipt)
+        time.sleep(10)
+
+    if txn_receipt is None:
+        return {'status':'failed','error':'timeout'}
+
+    return {'status':'added','txn_receipt':txn_receipt}
+
+
+```
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1471 
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/265138726
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/av93955098
+
