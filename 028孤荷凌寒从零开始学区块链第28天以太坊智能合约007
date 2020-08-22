@@ -1,0 +1,151 @@
+孤荷凌寒自学第114天区块链028
+以太坊智能合约007
+【主要内容】
+今天开始第一次尝试使用python来自己部署的智能合约进行交互。学习共用时35分钟。
+（此外整理作笔记花费了约74分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【学习笔记】
+一、尝试理解gas相关的的一些术语
+从以下博文获取了帮助：
+https://blog.csdn.net/jfkidear/article/details/82699808
+当然仍然没有完全理解，摘录笔记如下：
+1.什么是gas
+gas是“燃料”的意思，在以太坊区块链上实现了一个EVM（以太坊虚拟机）的代码运行环境，在链上执行写入操作时，网络中的每个全节点都会进行相同的计算并存储相同的值，这种执行的消耗是昂贵的，为了促使大家将能在链下进行的运算都不放到链上进行，也为了奖励矿工，因此在链上每执行一个写入操作时，都需要支付一定的费用，用gas为单位来计数，每个在链上可以执行的命令都设置了一个消耗的gas值，例：PUSH操作需要消耗3个gas，一次转账一般要消耗21000gas，gas使用ETH来支付。
+注意：无论您执行的命令是成功还是失败，都需要支付计算费用，即使失败，节点也验证并执行了您的交易（计算），因此必须和成功执行支付一样的费用
+2.什么是gas limit
+每个区块有gas limit，即单个区块允许的最多gas总量，以此可以用来决定单个区块中能打包多少笔交易。
+我们每一次交易或合约调用都要设置一个gas limit，如果该次操作所使用的gas数量小于或等于您所设置的gas limit，则会被执行，但如果gas总消耗量超过gas limit，所有的操作都会被重置，但费用依旧会被收取。在执行中实际消耗的gas值总和叫gas used，没有使用完的gas会退还到原账号。
+如果您尝试将一个会使用超过当前区块gas limit的交易打包，则会被网络拒绝，会反馈“below gas limit”
+3.什么是gas price
+在发起交易或合约调用时，我们可以自己设置gas的价格，即gas price，一般以GWei（1 ETH = 1000000000 GWei）为单位。通过gas price可以节省矿工费用，但也会减慢矿工打包的速度，矿工会优先打包gas price设置高的交易，如果您想加快转账，您可以把gas price设置得更高，这样您就可以插队靠前。
+在定义gas price时候，推荐浏览https://ethgasstation.info/ 这里能看到以太坊区块链上最近完成的交易对应的消耗单价、记录时间、等待时间、手续费均价等。根据自身交易需求，我们可以参考右下Safelow/Standard/Fast三个速度对应的gasPrice。
+4.总结
+gas limit由我们自己设定，相当于我们预计汽车需要加多少升汽油；
+gas price由我们自己设定，相当于每升汽油的价格；
+一次交易或调用实际需要消耗的gas（gas used）由该次交易或调用过程中执行的命令决定；
+gas used 必须小于或等于gas limit；
+实际支付的费用 = gas used * gas price。
+
+二、修改并批注第一个可以与eth网络上的自己发布的合约进行交互的py程序
+```
+#来自博文：https://blog.csdn.net/mongo_node/article/details/85043799
+import time
+from web3 import Web3, HTTPProvider
+
+contract_address="0xfbf6d79f50219505ff8e10b2f0ca1435a1210ffc"  #提供服务的合约地址，就是我自己创建（部署）的智能合约
+wallet_private_key="D8EF07D32389148E9DA6C54237BD5A39C92917D59340AA5D6064485C01E96FB2" #狐狸钱包的私钥
+wallet_address="0x5227C3EF48B5A1bcF784593e46D9579D26a3b592" #狐狸钱包的公钥，就是钱包地址，是eth网络上的一个节点。
+w3 = Web3(HTTPProvider("https://ropsten.infura.io/v3/79124269dc454e47bee73f964c971d3c")) #里面的参数字符串是在infura.io网站上申请 到的一个节点地址。
+
+w3.eth.enable_unaudited_features() #确认我们知道可能会发生问题的情况。
+
+print(w3.eth.blockNumber) #打印eth网络最后一个区块的id
+
+def send_ether_to_contract(amount_in_ether):
+    #此函数唯一的参数amount_in_ether的计量单位是：wei
+    amount_in_wei = w3.toWei(amount_in_ether,'ether')
+    nonce = w3.eth.getTransactionCount(wallet_address) #此处vscode提示eth下层对象不存在，是误报错误，因为web3类在定义时，它的下层对象是通过代码软性加载的，所以vscode无法检测到。
+    '''
+    web3类软性加载它的一些下层对象的代码如下：所以vscode通过静态代码去查找这些下层以对象是找不到的，所以报错。
+        for module_name, module_class in modules.items():
+            module_class.attach(self, module_name)
+    module_class中就包含了包括eth在内的多个web3类的下层对象。
+    以上是花了大量时间查找思考 后的个人见解，可能有错，恳请高手指点。
+    '''
+
+    #一次交易信息的内容如下：
+    txn_dict={
+        'to': contract_address, #合约地址，我们是向我自己创建的合约地址发送eth
+        'value': amount_in_wei, #要发送的eth的数量
+        'gas': 2000000, #油费，这篇文章讲得很清楚：https://blog.csdn.net/jfkidear/article/details/82699808
+        'gasPrice': w3.toWei('40','gwei'), #单位油价
+        'nonce': nonce, #这是一个地址nonce而不是更常见的工作证明。它只是发送地址所做的先前交易次数的计数，用于防止双重花费。
+        'chainId': 3 #每个以太坊网络都有自己的链ID：主网的ID为1，而Ropsten为3。你可以在这里找到更长的列表。
+    }
+
+    signed_txn = w3.eth.account.signTransaction(txn_dict, wallet_private_key) #用我这个节点（就是我的狐狸钱包这个节点)的私钥对我发出的交易信息进行签名。
+    #上一行代码，没有通过，签名时失败，提示如下：
+    '''
+    File "G:\w10_1\python\python365\lib\site-packages\eth_utils\decorators.py", line 17, in _wrapper
+    return self.method(obj, *args, **kwargs)
+    File "G:\w10_1\python\python365\lib\site-packages\eth_account\account.py", line 435, in signTransaction
+    ) = sign_transaction_dict(account._key_obj, sanitized_transaction)
+    File "G:\w10_1\python\python365\lib\site-packages\eth_account\internal\signing.py", line 23, in sign_transaction_dict
+    unsigned_transaction = serializable_unsigned_transaction_from_dict(transaction_dict)
+    File "G:\w10_1\python\python365\lib\site-packages\eth_account\internal\transactions.py", line 35, in serializable_unsigned_transaction_from_dict
+    assert_valid_fields(transaction_dict)
+    File "G:\w10_1\python\python365\lib\site-packages\eth_account\internal\transactions.py", line 140, in assert_valid_fields
+    raise TypeError("Transaction had invalid fields: %r" % invalid)
+TypeError: Transaction had invalid fields: {'to': '0xfbf6d79f50219505ff8e10b2f0ca1435a1210ffc'}
+    '''
+    txn_hash = w3.eth.sendRawTransaction(signed_txn.rawTransaction) #现在将我这个节点发起的交易信息发送到eth网络上，这个时候，返回一个此交易的唯一hash值，可以随时使用此哈希来查询我这个节点发起的这个交易是否已经被写入到一个挖出来 的区块中了
+    txn_receipt = None #用于记录智能合约返回给此次交易的收据？
+    count = 0
+
+    while txn_receipt is None and (count < 30):
+        txn_receipt = w3.eth.getTransactionReceipt(txn_hash) #getTransactionReceipt方法返回指定交易的收据对象。 如果交易处于pending状态，则返回null。
+        '''
+        http://cw.***.com/card/c/web3.js-1.0/1/2/19/
+        此博文的描述：（注意这是js版本的，没有找到中文py版本的说明）
+        web3.eth.getTransactionReceipt()方法返回指定交易的收据对象。 如果交易处于pending状态，则返回null。
+        调用：
+        web3.eth.getTransactionReceipt(hash [, callback])
+        参数：
+        hash：String - 交易的哈希值
+        callback：Function - 可选的回调函数，其第一个参数为错误对象，第二个参数为结果
+        返回值：
+        一个Promise对象，其解析值为交易的收据对象或者null。收据对象具有如下字段：
+        status - Boolean: 成功的交易返回true，如果EVM回滚了该交易则返回false
+        blockHash 32 Bytes - String: 交易所在块的哈希值
+        blockNumber - Number: 交易所在块的编号
+        transactionHash 32 Bytes - String: 交易的哈希值
+        transactionIndex - Number: 交易在块中的索引位置
+        from - String: 交易发送方的地址
+        to - String: 交易接收方的地址，对于创建合约的交易，该值为null
+        contractAddress - String: 对于创建合约的交易，该值为创建的合约地址，否则为null
+        cumulativeGasUsed - Number: 该交易执行时所在块的gas累计总用量
+        gasUsed- Number: 该交易的gas总量
+        logs - Array: 该交易产生的日志对象数组
+        '''
+        print(txn_receipt)
+        time.sleep(10)
+        count+=1
+
+    if txn_receipt is None:
+        return {'status':'失败','error':'超时'}
+
+    return {'status':'发送成功，交易完成','txn_receipt':txn_receipt}
+
+dicresult=send_ether_to_contract(20000000000000000)
+print(dicresult)
+```
+结果没有测试通过，在上文代码批注部分出错，暂且没有找到原因。详情见我的学习过程屏幕录像。
+
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1474
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/265641862 
+
+【学习过程屏幕录屏】
+链接：https://pan.baidu.com/s/1kESwMCmQgHWL_A-lMUxWPA 
+提取码：mmpi
+
