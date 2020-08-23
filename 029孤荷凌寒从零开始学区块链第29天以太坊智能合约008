@@ -1,0 +1,85 @@
+孤荷凌寒自学python第115天
+区块链029以太坊智能合约008
+
+【主要内容】
+今天继续研究使用python来自己部署的智能合约进行交互，试图解决昨天遇到的问题，但我又失败了。学习共用时37分钟。
+（此外整理作笔记花费了约44分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【学习笔记】
+一、定位了昨天的错误原因
+signed_txn = w3.eth.account.signTransaction(txn_dict, wallet_private_key)
+昨天的调试，错误在上一行代码，昨天 以为是提示我的钱包的私钥有误，今天认真阅读错误提示，发现，真正的错误是前面的交易（事务）信息的字典对象中的第一个字段“to”的值 没有通过验证。
+经过多次测试，始终认定我的“to”字段的值——即是我自己部署的智能合约的地址是非法的。
+然后定位到了web3模块中用于进行检测值合法性的函数如下：
+[transactions.py]
+```
+def assert_valid_fields(transaction_dict):
+    # check if any keys are missing
+    missing_keys = REQUIRED_TRANSACITON_KEYS.difference(transaction_dict.keys())
+    if missing_keys:
+        raise TypeError("Transaction must include these fields: %r" % missing_keys)
+
+    # check if any extra keys were specified
+    superfluous_keys = set(transaction_dict.keys()).difference(ALLOWED_TRANSACTION_KEYS)
+    if superfluous_keys:
+        raise TypeError("Transaction must not include unrecognized fields: %r" % superfluous_keys)
+
+    # check for valid types in each field
+    valid_fields = apply_formatters_to_dict(TRANSACTION_VALID_VALUES, transaction_dict)
+    if not all(valid_fields.values()):
+        invalid = {key: transaction_dict[key] for key, valid in valid_fields.items() if not valid}
+        raise TypeError("Transaction had invalid fields: %r" % invalid)
+
+```
+此函数的最后一个检测项：
+    valid_fields = apply_formatters_to_dict(TRANSACTION_VALID_VALUES, transaction_dict)
+得到的valid_fields变量中指明对交易信息字段中的”to”字段的值认证为false,非常让人无奈，不知道原因在哪儿。
+推测是我可能需要对地址的编码进行基本的处理（最开始自己手动写完整的Python区块链代码时做的那样），但找不到任何可用的资料。
+最后，万般无奈之下我注释掉了上面函数的最后一次检测的以下几句代码，放弃让其对地址进行检测：
+    # check for valid types in each field
+    valid_fields = apply_formatters_to_dict(TRANSACTION_VALID_VALUES, transaction_dict)
+    #if not all(valid_fields.values()):
+    #    invalid = {key: transaction_dict[key] for key, valid in valid_fields.items() if not valid}
+    #    raise TypeError("Transaction had invalid fields: %r" % invalid)
+
+这次测试，签名的地方是被强制通过了。
+但在发送签名后的交易信息时，又发生了反复提示我gas设置值不合理的错误，提示大概如下：
+ValueError: {'code': -32000, 'message': 'insufficient funds for gas * price + value'}
+或：
+ValueError: {'code': -32000, 'message': 'intrinsic gas too low'}
+不管怎么调整测试，都无法通过，这次去搜寻真正在验证此值的源代码也没有定位成功，于是在此句代码处完全卡住。
+感觉这个gas的设置还不是一般的复杂，主要原因应当是我对有关gas的三个量还没有真正的完全理解 。
+
+二、后续打算
+到今天为止，其实我已经亲自书写过一个Python独立完成的区块链测试网络；也通过solidity语言成功部署了一个智能合约。当然按当前所学的这个博文指明的教程，到这儿，却卡在了一些未知的问题上，我不得不思考，我要怎么办呢？
+反复思考之后，认为遇到拦路虎是正常的，现在正是发挥百折不挠的精神的时候了，为什么不呢？
+
+
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1478 
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/266036646 
+
+【学习过程屏幕录屏】
+链接：https://pan.baidu.com/s/1ylhKUZBooggQWUwCZXh0zA 
+提取码：euuw 
+
