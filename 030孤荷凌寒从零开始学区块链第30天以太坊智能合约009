@@ -1,0 +1,322 @@
+孤荷凌寒自学第116天
+认识区块链030
+【主要内容】
+今天继续研究使用python来自己部署的智能合约进行交互，测试调用合约中定义的全部函数方法，都测试成功了。学习共用时49分钟。
+（此外整理作笔记花费了约78分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【学习笔记】
+一、解决了昨天卡住处的错误，但仍然没有明白gas相关属性设置的要诀
+如下列代码所示的函数：
+def send_ether_to_contract(amount_in_ether):
+    #此函数唯一的参数amount_in_ether的计量单位是：eth
+中的参数amount_in_ether指的就是要向智能合约所在地址发送的value，今天才明白原来它的单位是eth而不是wei.
+所以今天一开始直接将要发送的value，更改为0.03，就成功了，再也没有提示各种奇怪的gas设置错误。
+调用此函数的代码最终如下：
+dicresult=send_ether_to_contract(0.03)
+print(dicresult)
+
+
+二、当我已经向提供服务的智能合约付费之后，我要向合约查询自己能否使用服务
+我现在突然对智能合约的其中一个作用有了比较有趣的认识，之前我学习过web服务器程序的开发，那么智能合约也就可以想象为一个提供服务的自动化服务器，我们支付费用租用其提供的服务，智能合约就能够提供编写其代码时可能提供的服务。
+现在我知道这个智能合约在编写时，提供了一个服务：
+// Our read-only function that checks whether the specified address is approved to post opinions.
+	//我们的只读函数，用于检查指定地址是否被批准发布意见。 
+	//下面这个函数方法访问指定的节点地址是否已经支付过0.02Wei的费用了。
+    function isApproved(address _soapboxer) public returns (bool approved) {
+        return approvedSoapboxer[_soapboxer];
+    }
+此函数将返回一个地址（eth网络的一个节点）是否已经付过费用了，如果已经付费，则返回True(returns (bool approved)代码指明返回类型)
+于是只要调用智能合约的这个函数方法就可以得到想要的结果了。
+要实现这一点，
+首先，得从python代码中得到这个智能合约对象：
+1.要从Python代码中得到这个智能合约对象，首先得查询到指定智能合约的abi连接接口列表。
+（1）从remix在线编辑器的：【SOLIDITY COMPILER】选项卡中，选择正确的编译版本（我选择的是：【0.4.14+commit.c2215d46】）.
+(2)然后执行编译命令【compile】
+(3)此时，此面板最下方会出现【ABI】复制图标，点击图标即可复制我们 所需要 的
+ABI连接参数列表。
+2.此ABI连接参数列表内容非常长，因此新建一个Py文件来存放它。
+注意，得到的只是连接参数列表本身（是一个列表），因此在Py文件中还必须定义一个变量来引用其内容。
+我按教程创建的文件名是：
+contract_abi.py
+其文件内容是：
+abi = """[
+    {
+        "constant": false,
+        "inputs": [],
+        "name": "getCurrentOpinion",
+        "outputs": [
+            {
+                "name": "",
+                "type": "string"
+            }
+        ],
+        "payable": false,
+        "type": "function",
+        "stateMutability": "nonpayable"
+    },
+    {
+        "constant": false,
+        "inputs": [
+            {
+                "name": "_soapboxer",
+                "type": "address"
+            }
+        ],
+        "name": "isApproved",
+        "outputs": [
+            {
+                "name": "approved",
+                "type": "bool"
+            }
+        ],
+        "payable": false,
+        "type": "function",
+        "stateMutability": "nonpayable"
+    },
+    {
+        "constant": false,
+        "inputs": [
+            {
+                "name": "_opinion",
+                "type": "string"
+            }
+        ],
+        "name": "broadcastOpinion",
+        "outputs": [
+            {
+                "name": "success",
+                "type": "bool"
+            }
+        ],
+        "payable": false,
+        "type": "function",
+        "stateMutability": "nonpayable"
+    },
+    {
+        "inputs": [],
+        "payable": false,
+        "type": "constructor",
+        "stateMutability": "nonpayable"
+    },
+    {
+        "payable": true,
+        "type": "fallback",
+        "stateMutability": "payable"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "name": "_soapboxer",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "name": "_opinion",
+                "type": "string"
+            }
+        ],
+        "name": "OpinionBroadcast",
+        "type": "event"
+    }
+]"""
+我定义的变量名是：abi，此变量就用于接收这个列表内容。
+注意到整个列表的内容，其实就是把智能合约的结构信息包含了其中，包括智能合约里有哪些函数，哪些事件等等。
+3.从主Py文件中引用这个Py文件。
+import contract_abi
+4.得到智能合约在Python代码中的引用对象
+contract = w3.eth.contract(address = contract_address, abi = contract_abi.abi)
+#---上一行中，contract_abi.abi，表示引用了存放在contract_abi.py文件中的变量abi的列表
+#---整个代码就是通过智能合约在eth网络上的地址 和对应ABI连接列表来得到指定的智能合约对象contract
+
+现在contract这个变量对象就直接代表了智能合约。
+然后，我们就可以通过contract这个变量对象来直接调用智能合约中的函数：【isApproved】来查询我们是否已经付费成功，可以使用智能合约的服务了。
+调用智能合约中函数的代码如下：
+#---向智能合约查询指定的address地址是否已经有资格在智能合约提供的服务中发表意见
+def check_whether_address_is_approved(address):
+
+    return contract.functions.isApproved(address).call()
+    #通过contract对象调用智能合约中的函数集（functions)中的指定 的函数：isApproved()，传入实参，最后添加方法 .call()
+    #这样就可以调用智能合约中的指定函数。
+
+
+三、开始享用智能合约的服务，调用智能合约的发布消息的函数，发布我的意见
+如上，我们也可以调用智能合约中的函数【broadcastOpinion】来发表意见。
+不过此时，按教程所讲，此处，调用智能合约发表意见这样的操作，也是需要支付油费（gas）的。于是和上面的调用 不同，此时就仍然需要向智能合约发送value为零的一笔交易，但要支付油费。于是此次调用函数不是使用.call()方法 ，而是要生成 一个交易信息，因此使用了【.buildTransaction()】方法以建立一个发送交易所需要的字典对象，后续就和昨天向智能合约发送0.03eth一样经历一次发送交易信息所需要的完整操作，并接收到交易成功后的“收据”
+在智能合约中，函数【broadcastOpinion】执行完成后，就直接触发了一个向全网广播本次信息发表的事件【event OpinionBroadcast(address _soapboxer, string _opinion);】
+于是我们也可以在py文件中调用上面已创建的智能合约对象contract来监听此事件，只需要传入发表意见这次交易的“收据”给事件对象，就可以得到事件广播的内容。
+监听事件与调用函数写法有很大不同，我还没有完全理解。
+下面是今天完整成功操作的全部代码：
+import time
+from web3 import Web3, HTTPProvider
+
+import contract_abi
+
+contract_address="0xfbf6d79f50219505ff8e10b2f0ca1435a1210ffc"  #提供服务的合约地址，就是我自己创建（部署）的智能合约
+wallet_private_key="D8EF07D32389148E9DA6C54237BD5A39C92917D59340AA5D6064485C01E96FB2" #狐狸钱包的私钥
+wallet_address="0x5227C3EF48B5A1bcF784593e46D9579D26a3b592" #狐狸钱包的公钥，就是钱包地址，是eth网络上的一个节点。
+
+nohadaddress="0x5227C3EF48B5A1bcF784593e46D9579D26a4a698" #伪造的一个不存在的地址,测试时，不认可这个地址，说明地址字符串之间有内部验证机制，随便修改的地址有问题
+
+w3 = Web3(HTTPProvider("https://ropsten.infura.io/v3/79124269dc454e47bee73f964c971d3c")) #里面的参数字符串是在infura.io网站上申请 到的一个节点地址。
+
+w3.eth.enable_unaudited_features() #确认我们知道可能会发生问题的情况。
+
+contract = w3.eth.contract(address = contract_address, abi = contract_abi.abi)
+#---上一行中，contract_abi.abi，表示引用了存放在contract_abi.py文件中的变量abi的列表
+#---整个代码就是通过智能合约在eth网络上的地址 和对应ABI连接列表来得到指定的智能合约对象contract
+
+print(w3.eth.blockNumber) #打印eth网络最后一个区块的id
+
+def send_ether_to_contract(amount_in_ether):
+    #此函数唯一的参数amount_in_ether的计量单位是：eth
+    amount_in_wei = w3.toWei(amount_in_ether,'ether')
+    nonce = w3.eth.getTransactionCount(wallet_address) #此处vscode提示eth下层对象不存在，是误报错误，因为web3类在定义时，它的下层对象是通过代码软性加载的，所以vscode无法检测到。
+
+    #一次交易信息的内容如下：
+    txn_dict={
+        'to':contract_address, 
+        'value':amount_in_wei, 
+        'gas':2000000,
+        'gasPrice':w3.toWei('40','gwei'),
+        'nonce':nonce,
+        'chainId':3
+    }
+
+    signed_txn = w3.eth.account.signTransaction(txn_dict, wallet_private_key) #用我这个节点（就是我的狐狸钱包这个节点)的私钥对我发出的交易信息进行签名。
+    #上一行代码，没有通过，签名时失败，提示如下：
+    txn_hash = w3.eth.sendRawTransaction(signed_txn.rawTransaction) #现在将我这个节点发起的交易信息发送到eth网络上，这个时候，返回一个此交易的唯一hash值，可以随时使用此哈希来查询我这个节点发起的这个交易是否已经被写入到一个挖出来 的区块中了
+    txn_receipt = None #用于记录智能合约返回给此次交易的收据？
+    count = 0
+
+    while txn_receipt is None and (count < 30):
+        txn_receipt = w3.eth.getTransactionReceipt(txn_hash) #getTransactionReceipt方法返回指定交易的收据对象。 如果交易处于pending状态，则返回null。
+        '''
+        http://cw.hubwiz.com/card/c/web3.js-1.0/1/2/19/
+        此博文的描述：（注意这是js版本的，没有找到中文py版本的说明）
+        web3.eth.getTransactionReceipt()方法返回指定交易的收据对象。 如果交易处于pending状态，则返回null。
+        调用：
+        web3.eth.getTransactionReceipt(hash [, callback])
+        参数：
+        hash：String - 交易的哈希值
+        callback：Function - 可选的回调函数，其第一个参数为错误对象，第二个参数为结果
+        返回值：
+        一个Promise对象，其解析值为交易的收据对象或者null。收据对象具有如下字段：
+        status - Boolean: 成功的交易返回true，如果EVM回滚了该交易则返回false
+        blockHash 32 Bytes - String: 交易所在块的哈希值
+        blockNumber - Number: 交易所在块的编号
+        transactionHash 32 Bytes - String: 交易的哈希值
+        transactionIndex - Number: 交易在块中的索引位置
+        from - String: 交易发送方的地址
+        to - String: 交易接收方的地址，对于创建合约的交易，该值为null
+        contractAddress - String: 对于创建合约的交易，该值为创建的合约地址，否则为null
+        cumulativeGasUsed - Number: 该交易执行时所在块的gas累计总用量
+        gasUsed- Number: 该交易的gas总量
+        logs - Array: 该交易产生的日志对象数组
+        '''
+        print(txn_receipt)
+        time.sleep(10)
+        count+=1
+
+    if txn_receipt is None:
+        return {'status':'失败','error':'超时'}
+
+    return {'status':'发送成功，交易完成','txn_receipt':txn_receipt}
+
+#---向智能合约查询指定的address地址是否已经有资格在智能合约提供的服务中发表意见
+def check_whether_address_is_approved(address):
+
+    return contract.functions.isApproved(address).call()
+    #通过contract对象调用智能合约中的函数集（functions)中的指定 的函数：isApproved()，传入实参，最后添加方法 .call()
+    #这样就可以调用智能合约中的指定函数。
+
+#---通过调用智能合约中发表意见的函数来发表自己的意见，此过程是要付油费的。
+def broadcast_an_opinion(covfefe):
+    nonce = w3.eth.getTransactionCount(wallet_address)
+
+    txn_dict = contract.functions.broadcastOpinion(covfefe).buildTransaction({
+        'chainId': 3,
+        'gas': 140000,
+        'gasPrice': w3.toWei('40', 'gwei'),
+        'nonce': nonce,
+    })
+
+    signed_txn = w3.eth.account.signTransaction(txn_dict, private_key=wallet_private_key)
+
+    result = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+
+    tx_receipt = w3.eth.getTransactionReceipt(result)
+
+    count = 0
+    while tx_receipt is None and (count < 30):
+
+        time.sleep(10)
+
+        tx_receipt = w3.eth.getTransactionReceipt(result)
+
+        print(tx_receipt)
+
+        count+=1
+
+    if tx_receipt is None:
+        return {'status': 'failed', 'error': 'timeout'}
+
+    processed_receipt = contract.events.OpinionBroadcast().processReceipt(tx_receipt)
+    #---监测智能合约的事件的写法与调用智能合约的函数的写法是不同的。-----
+    #---将tx_receipt作为参数传入，作用是定位吗？用以确定是哪个互动引发的事件？
+
+    print(processed_receipt)
+    #---processed_receipt变量中得到了通过监听事件而获取的事件广播的全部信息(合约中的此事件广播了两个信息：一个是发起交易方的地址，二个是发表的意见。)
+    
+    output = "Address {} broadcasted the opinion: {}"\
+        .format(processed_receipt[0].args._soapboxer, processed_receipt[0].args._opinion)
+    #上一行代码将两个信息分别提取出来 ，使用到了.args子对象，args子对象中包含了智能合约指定事件的两个形参的标识名称。
+    #--注意这儿使用了processed_receipt[0]，说明包含了多个事件广播 的内容。
+    print(output)
+
+    return {'status': 'added', 'processed_receipt': processed_receipt}
+
+#dicresult=send_ether_to_contract(0.03)
+#print(dicresult)
+
+#ispass=check_whether_address_is_approved(wallet_address)
+#ispass=check_whether_address_is_approved(nohadaddress)
+#print(ispass)
+
+obj=broadcast_an_opinion("孤荷凌寒qq578652607发表的第一个意见。")
+print(obj)
+
+
+【学习后记】
+都说“山穷水尽疑无路，柳暗花明又一村”，果然事实总是如此，有时再多一点点的坚持，往往才会看到完全不同的结果。昨天的学习，似乎完全看不到希望了，而今天的继续坚持就看到了完全不同的一光明。所以在任何时候，做任何事情，再多一点点的坚持都是决定成败的关键，我无不让我想到电话的发明过程，一位就多坚持了一会儿，就带来了完全不同的命运。我又想到了马云曾经说过的：“今天很残酷，明天也很残酷，可是后天很美好，不过很多人已经死在明天晚上了”。
+
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1482 
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/266608718
+
+【学习过程屏幕录屏】
+链接：https://pan.baidu.com/s/1P979HooXj-VoGV1neQZS1w 
+提取码：g4kn 
+
