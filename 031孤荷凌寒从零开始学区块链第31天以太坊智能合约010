@@ -1,0 +1,110 @@
+孤荷凌寒自学第117天区块链031
+以太坊的 erc20代币01
+【主要内容】
+今天开始使用erc20标准规范按一篇网络博文的教程进行亲自敲打代码来写一个可以发行token的智能合约。学习共用时37分钟。
+（此外整理作笔记花费了约46分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【学习笔记】
+一、基本理清在eth网络平台上写一个可以发行代币的智能合约的基本架构
+参考的学习博文：https://www.jianshu.com/p/ce9417905b97
+首先按erc20的标准接口，定义一个底层的基础的智能合约（感觉非常 像在定义一个类的感觉 ）
+erc20的标准接口一般是这样定义的：
+contract ERC20 {
+      function name() constant returns (string name)
+      function symbol() constant returns (string symbol)
+      function decimals() constant returns (uint8 decimals)
+      function totalSupply() constant returns (uint totalSupply);
+      function balanceOf(address _owner) constant returns (uint balance);
+      function transfer(address _to, uint _value) returns (bool success);
+      function transferFrom(address _from, address _to, uint _value) returns (bool success);
+      function approve(address _spender, uint _value) returns (bool success);
+      function allowance(address _owner, address _spender) constant returns (uint remaining);
+      event Transfer(address indexed _from, address indexed _to, uint _value);
+      event Approval(address indexed _owner, address indexed _spender, uint _value);
+    }
+参照而写的自己定义的这个底层的基础的智能合约，只使用了其中一些函数方法和事件：
+没有使用name,symbol,decimals这三个函数。
+然后另外定义一个智能合约，然后刚才的智能合约作为基础（有点类似基类的感觉 ）
+最后还可以定义一个智能合约，又使用上面的智能合约作为基础(以作为教程的这篇博文为例是这样的，感觉可以多次加层)
+
+二、为了更好学习，手动敲打每一个代码字母，今天完成了最底层那个智能合约定义的一部分。
+代码如下：
+```
+pragma solidity ^0.4.4;
+
+//下面定义的是最基本的合约框架，感觉直接照搬了erc20标准接口中的那些 定义
+contract Token{
+    /// @return 返回此代币要发行的总量的函数方法（只是一个空壳）
+    function totalSuply() constant returns (uint256 supply){}
+
+    /// @param _owner 要查询的地址
+    /// @return 返回对应地址的代币余额，是指eth的余额吗？
+    function balanceOf(address _owner) constant returns(uint256 balance){}
+
+    /// @param _to 调用此合约的节点（msg.sender)要将代币发送给哪个节点地址
+    /// @param _value 此次交易要发送多少代币，是指eth吗？
+    /// @return 此函数返回的是，此次交易是否完成成功。
+    function transfer(address _to,uint256 _value) returns(bool success){}
+
+    /// @notice 此函数用于调用此合约的节点委托授权另一个节点地址（可能是当前合约或另一个合约吗？)可以动用自己多少token
+    /// @param _spender 获得调用此合约的节点（msg.sender)授权的一个节点地址。
+    /// @param _value 获得了多少token的授权，指的是eth吗？
+    /// @return 返回本次委托授权操作是否成功。
+    function approve(address _spender,uint256 _value) returns (bool success){}
+
+    /// @notice 此函数用于查询一次授权的双方(发起委托授权的节点与接受委托授权的节点)当前授权token的可用余额（就是说接受授权节点还可以动用的实际token数量）
+    /// @param _owner 发起委托授权的节点地址 
+    /// @param _spender 授受委托授权的节点地址
+    /// @return 返回剩下的可用的授权token数量
+    function allowance(address _owner,address _spender) returns(uint256 remaining){}
+
+    
+}
+
+```
+三、今天学习到了solidity语言添加函数注释的方法 
+对一函数的形参加以注释，以便在调用函数时，可以提示这个形参的基本信息，是非常方便 的编程技巧，solidity语言也有这样的功能，感觉 和js语言非常 类似。
+1.要对整个函数的作用进行注释
+使用
+/// @notice
+注释标签后，在后面书写注释文字
+2.要对函数的形参进行注释
+使用
+/// @param 形参名
+注释标签，在后面注明指定的形参名所代表的含义和具体内容
+3.要对返回值进行注释
+使用
+/// @return
+注释标签，在后面注明返回值的说明
+注意此处的标签是：return 而不是函数定义中的返回值的关键词returns
+
+
+【学习后记】
+有朋友在我又坚持学习了30天后，问我，哪有时间来进行学习，特别是觉得像我这个中年大叔的年纪怎么可能有时间 学习，非常感谢朋友们的关心，确实时间少得可怜，像今天 的学习，都 是在检查完孩子作业后，才挤了一个小时左右来完成 ，期间还在被不停的打扰，时间对于人生已过半的我来说，真的是宛若珠宝，再怎么珍惜，也所剩余无几了。但我深深的知道，如果不坚持学习，不改变自己，不接触最新前沿的东西，我看到人工智能正在崛起，终有一天会将我们 这样的老人逼迫得无处可逃，有了这样的紧迫感，我突然发现时间自然就出现了，可见在过去的半生里，我是白白浪费了多少时光啊！尚且年少的朋友们，命运就在自己手中。
+
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1488 
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/267677825 
+
+【学习过程屏幕录屏】
+链接：https://pan.baidu.com/s/1Z5F85KjdnS8XCeOXR0z7KA 
+提取码：wz89 
