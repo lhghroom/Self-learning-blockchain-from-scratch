@@ -1,0 +1,112 @@
+孤荷凌寒自学第121天区块链035
+以太坊的 erc20代币05
+【主要内容】
+今天继续使用erc20标准规范按一篇网络博文的教程进行亲自敲打代码来写一个可以发行代币的智能合约。学习共用时31分钟。
+（此外整理作笔记花费了约52分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【学习笔记】
+一、经过努力，没有完全理解符合erc20标准的approve()函数与approveAndCall()区别
+https://mp.weixin.qq.com/s/foM1QWvsqGTdHxHTmjczsw
+此博文进行了详细的讲解，无奈基础比较差，没有完全理解，但就已大概理解的部分，笔记 如下，恳请高手指导：
+(一)如果只在合约中定义了符合 erc20标准的approve()函数，那么，调用合约的授权节点（我就直接称之为“用户节点”）（就是说准备使用某个服务智能合约的节点，现在授权另一个节点——一般就是指提供智能服务的服务合约节点）需要先进行授权发出，然后服务智能合约授受授权，然后此节点再发送真实要求提供服务的智能合约进行处理的数据。
+这种情况下，真正要使用服务合约的用户节点，其实是进行了两次交易（事务），这可能面临多次付费gas。
+（二）approveAndCall()函数不在erc20标准之内，但它提供了一种想要使用服务合约的服务的用户节点只需要发起一次交易（事务）的解决方法。
+这时，用户节点的授权发起与实际数据都在同一交易（事务）中发起即可。
+今天继续照做的
+https://www.jianshu.com/p/ce9417905b97
+的博文的例子就是使用的
+approveAndCall()函数。
+二、今天通过阅读官方文档，才知道solidity智能合约果然非常类似于Python类，是可以复杂的进行继承的
+“Solidity 支持多重继承。
+所有的函数调用都是虚拟的，这意味着最远的派生函数会被调用，除非明确给出合约名称。
+当一个合约从多个合约继承时，在区块链上只有一个合约被创建，所有基类合约的代码被复制到创建的合约中。”
+于是之前最开始编写的的基础的合约文件：Token.sol中的智能合约就是一个虚拟合约，因为其中没有任何有效函数代码，函数只有一个空架子。
+三、今天已完成最终的智能合约的代码。
+到今天为止【ghlhtoken.sol】文件已完成：
+```
+pragma solidity ^0.4.4;
+
+import "StandardToken.sol";
+
+contract ghlhToken is StandardToken {
+
+    //下一个函数没有函数命名名称，属于特殊的函数
+    //此函数的基本作用是，如果收到了没有指明任何相关信息的代币发送给此合约，就将这些代币扔回去。
+    //此种函数名叫：Fallback 函数
+    function (){
+        throw(); //这个单词的意思就是【扔】
+    }
+
+    //定义与自发行的币相关的一些属性
+    string public name;                   //token名称: ghlhToken 
+    uint8 public decimals;                //小数位，此币种最小的单位，允许到小数点后第几位
+    string public symbol;                 //标识，就是代币的缩写，如BTC
+    string public version = 'H0.1';       //版本号
+    //现在定义合约的建构函数
+    function ghlhToken(
+        uint256 _initialAmount,
+        string _tokenName,
+        uint8 _decimalUnits,
+        string _tokenSymbol
+    ){
+        balances(msg.sender)=_initialAmount; //这意味着，部署合约的节点首先获得全部要发行的币的总量
+        //balances这个状态变量，是在此合约继承的父合约中定义的。
+        totalSupply=_initialAmount; //此状态变量记录下总共要发行的币的总量。
+        name = _tokenName;                                   // token名称
+        decimals = _decimalUnits;                            // token小数位
+        symbol = _tokenSymbol;                               // token标识
+    }
+
+    /* 批准授权，然后调用接收合约 */
+    //https://mp.weixin.qq.com/s/foM1QWvsqGTdHxHTmjczsw 此博文对此有比较详细的解释，不过仍然没有完全理解
+    function approveAndCall(address _spender, uint256 _value, bytes _extraData) returns (bool success) {
+        allowed[msg.sender][_spender] = _value;
+        Approval(msg.sender, _spender, _value); //引发事件，广播一次授权事件正在发生。
+
+        //下面的内容就完全不懂了。
+        //调用你想要通知合约的 receiveApprovalcall 方法 ，这个方法是可以不需要包含在这个合约里的。
+        //receiveApproval(address _from, uint256 _value, address _tokenContract, bytes _extraData)
+        //假设这么做是可以成功，不然应该调用vanilla approve。
+
+        if(!_spender.call(bytes4(bytes32(sha3("receiveApproval(address,uint256,address,bytes)"))), msg.sender, _value, this, _extraData)) { throw; }
+        return true;
+    }
+
+}
+
+```
+
+【个人自学感悟分享】
+其实很多时候，我们都只是被自我编织的谎言所蒙蔽了双眼进而失去了智慧的双眼，那就要马上重新检视自己，如同把自己这台电脑重新启动一次，开始全面自检——
+自己究竟有多优秀？
+最终你会如我一样，发现原来自己真的很优秀，远远比过去 自己所感知的自己优秀，更比别人评价的自己还要优秀！
+那我这么优秀，就直接骄傲得了？这当然不是，这么优秀是为了让自己相信，我可以掌控自己的命运，我可以掌控一切我自己的行动，只要是与我自己相关的，我都可以改变，都可以学会。
+我们真的很容易被他人的评价所影响进而为了别人的评价而生活，他人的评价是重要 的，是需要 参考 的，但那不是全部。
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1504  
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/269622297 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/av96559461/ 
+
+
