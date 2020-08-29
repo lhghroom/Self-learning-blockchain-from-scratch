@@ -1,0 +1,167 @@
+孤荷凌寒自学第120天
+区块链034以太坊的 erc20代币04
+
+【主要内容】
+今天继续使用erc20标准规范按一篇网络博文的教程进行亲自敲打代码来写一个可以发行token的智能合约。学习共用时31分钟。
+（此外整理作笔记花费了约48分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【学习笔记】
+一、经过一天的思考和查看资料，现在已经基本理解了approve授权操作与transferFrom
+(一)首先调用合约中的approve()函数的节点应当是指发起授权别的节点可以运用自己节点中代币的节点。因此：
+此函数中：
+allowed[msg.sender][_spender]=_value;
+这一句代码中，之后以[msg.sender]会作为发起授权事务的一方，就是因为调用合约的approve()函数的节点就是来发起授权事务的。
+（二）而调用transferFrom()函数方法的节点却应当是曾经接受过另的节点授权，可以使用别的节点指定金额的代币的节点，因此 ：
+此transferFrom函数中：
+        if balances[_from]>=_value && allowed[_from][msg.sender]>=_value && _value>0{
+这句代码中的
+allowed[_from][msg.sender]
+msg.sender
+就作为了接受授权的节点，而此时_from才表示之前发起授权操作的节点。
+二、今天继续逐字母敲打书写作为基础的那个智能合约的内容。
+到今天为止【StandardToken.sol】文件已完成：
+```
+pragma solidity ^0.4.4;
+
+import "Token.sol";
+
+contract StandardToken is Token{
+    mapping (address => uint256) balances;
+    mapping (address => mapping (address => uint256)) allowed;
+    uint256 public totalSupply;
+    function transfer(address _to,uint256 _value) returns (bool success){
+        //此函数仅用于调用合约的节点（或者理解为创建这个合约的节点？)地址进行代币的发送到_to形参指定的节点地址。
+        //可以发送的代币的数量_value这个形参的数值类型是 uint256，可以理解为只能是大于等于零的数，且最大值为2^256-1（为什么要减一呢？因为从0开始）
+        //实际上这个形参的数值类型就限定了最大可以发送的代币的数量，最多只允许2^256-1。
+        //下一行代码要进行发送方现有代币余额的检查，以确认可以发送这么多的代币。
+        if balances[msg.sender]>=_value && _value>0{
+            //--如果发送方节点有这么多_value，那么执行代币在两个节点间的转移
+            balances[msg.sender]-=_value;
+            balances[_to]+=_value;
+            //---触发事件----
+            Transfer(msg.sender,_to,_value);
+            //--返回处理结果----
+            return true;
+        }else{
+            return false;
+        }
+
+    }
+
+    function transferFrom(address _from,address _to,uint256 _value) returns (bool success){
+        //此函数形参_from指定的节点地址进行代币的发送到_to形参指定的节点地址。(是否是在进行授权节点（合约的节点？）的代币支配转移？)
+        //可以发送的代币的数量_value这个形参的数值类型是 uint256，可以理解为只能是大于等于零的数，且最大值为2^256-1（为什么要减一呢？因为从0开始）
+        //实际上这个形参的数值类型就限定了最大可以发送的代币的数量，最多只允许2^256-1。
+        //下一行代码要进行发送方现有代币余额的检查，以确认可以发送这么多的代币。
+        //同时检查，发送方授权给授权接受方的可支配代币金额是否大于等于_value
+        if balances[_from]>=_value && allowed[_from][msg.sender]>=_value && _value>0{
+            //allowed[_from][msg.sender]中：
+            //_from指的是代币真正的发送方（此节点代币才真正减少），而[msg.sender]指的是_from授权的接受节点（此节点可以动用_from节点限定数量的_value）
+            //为什么这儿的授权接受方是[msg.sender]没有完全理解 。
+            //--如果发送方节点有这么多_value，那么执行代币在两个节点间的转移
+            balances[_from]-=_value; //真正发送代币的节点的代币数量减少
+            balances[_to]+=_value; //接收代币的节点代币数量增加
+            allowed[_from][msg.sender]-=_value; //授权的可动用的代币数量也减少
+            //上一行与后面的approve()函数中的allowed的对象多重列表的表示感觉有点混乱，不好理解，其实原因是：
+            //此函数一般由之前接受过某节点（这儿指_from节点）授权的节点来调用，因此此处allowed对象表示接受授权的节点就是【msg.sender】(指当前调用合约的这个节点)
+
+            //---触发事件----
+            Transfer(_from,_to,_value);
+            //--返回处理结果----
+            return true;
+        }else{
+            return false;
+        }
+
+    }
+
+    function balanceOf(address _owner) constant returns (uint256 balance){
+        //此合约函数用于外部调用合约时，返回指定节点_owner目前的代币余额。
+        return balance[_owner];
+    }
+
+    function approve(address _spender, uint256 _value) returns (bool success)) {
+        //此合约由调用合约的节点（msg.sender）向指定的节点_spender授权，让_spender节点可以调用发起授权的节点指定_value数量的值。
+        //调用此合约的这个函数方法的节点，将通过此函数方法发起授权，因此 这儿——调用此合约的节点：msg.sender就是发起授权的一方。
+        allowed[msg.sender][_spender]=_value;
+        //下面显式引发事件
+        Approve(msg.sender,_spender,_value);
+        return true;
+    }
+
+    function allowance(address _owner,address _spender) return (uint256 remaining){
+        //此函数供查询指定的一个授权节点_owner与接受授权的节点_spender之间授权内容中，目前还剩余的授权_value是多少。
+        return allowed[_owner][_sender];
+    }
+
+}
+    function balanceOf(address _owner) constant returns (uint256 balance){
+        //此合约函数用于外部调用合约时，返回指定节点_owner目前的代币余额。
+        return balance[_owner]
+    }
+
+}
+
+```
+三、开始写最终的继承自前两个合约的合约文件
+在最后这个合约文件中，定义了与自己要发行的代币相关的信息，并最终完善了全部需要的接口函数。
+我将自己的代币名称修改为：
+ghlhToken
+于是文件名与合约命名也修改为：
+ghlhToken.sol
+下面是今天已完成的代码：
+```
+pragma solidity ^0.4.4;
+
+import "StandardToken.sol";
+
+contract ghlhToken is StandardToken {
+
+    //下一个函数没有函数命名名称，属于特殊的函数（之前从别的资料中读到过，遗忘了，后续再补充学习)
+    //此函数的基本作用是，如果收到了没有指明任何相关信息的代币发送给此合约，就将这些代币扔回去。
+    function (){
+        throw(); //这个单词的意思就是【扔】
+    }
+
+    //现在定义合约的建构函数
+    function ghlhToken(
+        
+    ){
+
+    }
+
+}
+
+```
+
+【学习后记】
+人作为一种生物，从基因里就写着要不断去探索发现的命令，这也是我们祖先们一路进化至此的历史所证明。从非洲一隅，到遍布整个世界；从陆地到海洋；从地球到太空……无不是对新事物的一种执着追求。作为人的一个个体，其实基因里也从来不会安分于一生只囿于一个角落，一个领域，如果这样，我们的基因代码就将把烦躁与麻木与无聊的情绪加于我我们心灵，使我们变得自觉无趣。
+只有不断向未知的领域去探索，去涉足，我们的基因代码才会感到满足，这样的快乐感，才是基因代码与生俱来最推崇的快乐。
+于是我决定不断去探索全新的领域，我正走在路上，我就正最大的快乐着 ……
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1499  
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/269075784 
+
+【学习过程屏幕录屏】
+链接：https://pan.baidu.com/s/14uw6gNrVoeJEv1qNBEXYag 
+提取码：lhct
+
