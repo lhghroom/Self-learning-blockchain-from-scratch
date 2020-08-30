@@ -1,0 +1,231 @@
+孤荷凌寒自学第122天区块链036
+以太坊的 erc20代币06
+【主要内容】
+今天继续使用erc20标准规范按一篇网络博文的教程进行亲自敲打代码来写一个可以发行token的智能合约。学习共用时44分钟。
+（此外整理作笔记花费了约53分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【学习笔记】
+一、尝试理解approveAndCall()函数内部的操作
+https://mp.weixin.qq.com/s/foM1QWvsqGTdHxHTmjczsw
+继续按以上博文的指导为主，结合官方中文文档的解释来理解：
+（官方中文文档：
+https://solidity-cn.readthedocs.io/zh/develop/units-and-global-variables.html?highlight=%20keccak256#id3）
+        if(!_spender.call(bytes4(bytes32(sha3("receiveApproval(address,uint256,address,bytes)"))), msg.sender, _value, this, _extraData)) { throw; }
+ (一)solidity中计算一个对象的哈希值（散列值）的几个函数
+1.
+keccak256(...) returns (bytes32) 
+计算参数的Ethereum-SHA-3（Keccak-256）的散列
+2.
+sha256(...) returns (bytes32) 
+计算参数的SHA-256散列
+3.
+sha3(...) returns (bytes32) 
+keccak256的别名
+4.
+ripemd160(...) returns (bytes20) 
+计算参数的RIPEMD-160哈希值
+
+(二)调用一个合约地址所在的智能合约的函数的call方法
+在上面的式子中，【_spender】代表的是提供服务的服务合约据的地址，通过调用此地址的call方法，可以调用此节点上的智能合约中的函数。上面式子进行了多次数据类型转换（我的理解是这实际上应当就是编码转换），进而调用了服务智能合约中的用于接受授权的函数【receiveApproval】。
+而此函数需要的参数，则在call方法的后面的实参中一一给出。
+http://www.chidaolian.com/article-6311-1
+这篇博文对call方法的安全问题作了阐述。
+
+（三）我发现其它一些范例，不是使用的通过调用智能合约地址所在的call方法来进行跨智能合约函数调用与交互的。
+如：https://mp.weixin.qq.com/s/foM1QWvsqGTdHxHTmjczsw
+讲到approveAndCall()方法时的示例如下：
+```
+function approveAndCall(address _recipient,
+                        uint256 _value,
+                        bytes _extraData) {
+  approve(_recipient, _value);
+  TokenRecipient(_recipient).receiveApproval(msg.sender,
+                                             _value,
+                                             address(this),
+                                             _extraData);
+}
+
+```
+在上面的代码中，对象:
+TokenRecipient
+其实是一个作为基础合约的抽象合约（即是说，合约的具体函数内部没有可执行代码，只是个空壳，这样的合约只能作为别的合约的基础合约，供其它合约继承使用）
+不过声明这个抽象合约时，使用的是interface关键词定义的，而不是通常使用的contract.
+通过直接使用
+这个抽象合约名（实际的地址）
+的方法就可以直接引用到实际地址所在节点上的智能合约
+然后就可以直接使用这个智能合约对象.其中的函数（）
+如上例中的代码所写的那样。
+我个人感觉这个写法更好理解一些，不过不知道这是否意味着使用call()方法所产生的安全问题，也被消除了。
+博文：https://blog.csdn.net/weixin_34291004/article/details/91902209
+对这种写法进行了详细说明。
+特别发现：
+这个抽象合约的名称可以作为定义一个对象变量的类型来使用，如下面的例子，就来自于上面的博文：
+这是一个智能合约的完整内容(虽然很简单，但为了说明问题)：
+```
+//这个合约，作为一个提供服务的智能合约而存在，部署时，只部署InterfaceImplContract这个合约即可。
+pragma solidity ^0.4.16;
+
+//下面使用了interface关键词定义了一个抽象合约
+interface interfaceContract {
+    function receiveApproval(address _from, uint256 _value, address _token, bytes _extraData);
+}
+//下面使用contract关键词定义了一个智能合约，就继承自抽象合约interfaceContract
+contract InterfaceImplContract is interfaceContract {
+    event Receive(address from, uint256 value, address token, bytes extraData);
+    function receiveApproval(address _from, uint256 _value, address _token, bytes _extraData) {
+        Receive(_from,_value,_token,_extraData);
+    }
+}
+
+```
+然后，另一个合约中要和上面的这个合约交互，这个合约的代码如下：
+```
+pragma solidity ^0.4.16;
+
+//下面使用了interface关键词定义了一个抽象合约
+//此抽象合约与上面定义过另一个智能合约（提供服务的服务合约）的声明完全一样，但此时不是用于被别的合约继承，此处它的作用作为一个跨合约的接口而存在。
+interface interfaceContract {
+    function receiveApproval(address _from, uint256 _value, address _token, bytes _extraData);
+}
+contract RemoteContract {
+    function func(address _addr, uint _value) {
+        //注意这里的_addr参数，需要填写tokenRecipient合约的地址。这里加载已经存在的智能合约。如何合约不存在会报错回滚。
+        interfaceContract _interfaceContract = interfaceContract(_addr); 
+        //上面的代码中，作为接口抽象合约的合约名interfaceContract 被作为定义的类型来使用，定义了一个具体的对象_interfaceContract
+        //真正直到指明要调用哪个服务合约的定位作用的是实参【_addr】
+        //通过给接口合约（就是抽象合约interfaceContract）传递真正的上面的定义过的合约【tokenRecipient】部署后的地址【_addr】
+        //就实现了引用合约【tokenRecipient】，然后此时对象【_interfaceContract】就已经代表的是合约【tokenRecipient】了。
+        //此时，就可以通过对象【_interfaceContract】来调用合约其中可用的函数了。
+        //下一句代码，就调用了合约【tokenRecipient】的方法函数【receiveApproval】
+        _interfaceContract.receiveApproval(msg.sender, _value, address(this), "这是一些信息");
+    }
+}
+
+```
+
+二、今天真正确认solidity语言的一个特别之处：函数可以指定多个返回对象
+今天正式确认已了解到，solidity语言的函数定义时，使用的函数返回定义使用的是：
+returns
+是复数形式，则证实是可以在同一个函数中返回多个返回对象，这在之前学习的其它编程语言中是没有明确注意到的新特性，我个人认为这是非常了不起的创举，很多编程语言不支持同一函数返回多个计算结果给外部调用者，而有的时候，又急切地想要使用这样的效果，没有想到solidity语言真正的直接支持这一特性，非常意外的惊喜。
+
+三、今天已修改完成最终的智能合约的代码。
+到今天为止【ghlhtoken.sol】文件已批注完成：
+```
+pragma solidity ^0.4.4;
+
+import "StandardToken.sol";
+
+contract ghlhToken is StandardToken {
+
+    //下一个函数没有函数命名名称，属于特殊的函数
+    //此函数的基本作用是，如果收到了没有指明任何相关信息的代币发送给此合约，就将这些代币扔回去。
+    //此种函数名叫：Fallback 函数
+    function (){
+        throw(); //这个单词的意思就是【扔】
+    }
+
+    //定义与自发行的币相关的一些属性
+    string public name;                   //token名称: ghlhToken 
+    uint8 public decimals;                //小数位，此币种最小的单位，允许到小数点后第几位
+    string public symbol;                 //标识，就是代币的缩写，如BTC
+    string public version = 'H0.1';       //版本号
+    //现在定义合约的建构函数
+    function ghlhToken(
+        uint256 _initialAmount,
+        string _tokenName,
+        uint8 _decimalUnits,
+        string _tokenSymbol
+    ){
+        balances(msg.sender)=_initialAmount; //这意味着，部署合约的节点首先获得全部要发行的币的总量
+        //balances这个状态变量，是在此合约继承的父合约中定义的。
+        totalSupply=_initialAmount; //此状态变量记录下总共要发行的币的总量。
+        name = _tokenName;                                   // token名称
+        decimals = _decimalUnits;                            // token小数位
+        symbol = _tokenSymbol;                               // token标识
+    }
+
+    //下面这个函数不属于erc20标准接口，同时完成授权与将要发送给服务合约的数据发送出去。
+    //https://mp.weixin.qq.com/s/foM1QWvsqGTdHxHTmjczsw 此博文对此有比较详细的解释，不过仍然没有完全理解
+    function approveAndCall(address _spender, uint256 _value, bytes _extraData) returns (bool success) {
+        allowed[msg.sender][_spender] = _value;
+        Approval(msg.sender, _spender, _value); //引发事件，广播一次授权事件正在发生。
+
+        //调用你想要通知的服务合约的 receiveApprovalcall 方法（是指提供服务的服务合约中的方法，不是当前（当前是一个代币合约）合约中的函数） ，在服务合约（就是接收实际要处理的，由发送方（此处批授权发起节点）发送的数据的合约方）中此函数的定义内容大致如下：
+        //receiveApproval(address _from, uint256 _value, address _tokenContract, bytes _extraData)
+
+        //下一语句，先检查调用服务合约的receiveApprovalcall()方法是否成功，如果不成功，就throw；这个时候，是否意味着还是应当调用标准的approve()方法？
+        if(!_spender.call(bytes4(bytes32(sha3("receiveApproval(address,uint256,address,bytes)"))), msg.sender, _value, this, _extraData)) { throw; }
+        
+        //---首先来自中文版官方文档的说明：https://solidity-cn.readthedocs.io/zh/develop/units-and-global-variables.html?highlight=%20keccak256#id3
+        //sha3---
+        //sha3(...) returns (bytes32):
+        //等价于 keccak256。
+        //keccak256---
+        //keccak256(...) returns (bytes32):
+        //计算 (tightly packed) arguments 的 Ethereum-SHA-3 （Keccak-256）哈希。
+        //我的理解就是，将后面参数直接求出其哈希值来
+        //博文：https://www.jianshu.com/p/682c75b10392 的说明如下：
+        //SHA3采用Keccak算法，在很多场合下Keccak和SHA3是同义词，但在2015年8月SHA3最终完成标准化时，NIST调整了填充算法，标准的SHA3和原先的Keccak算法就有所区别了。在早期的Ethereum相关代码中，普遍使用SHA3代指Keccak256，为了避免和NIST标准的SHA3混淆，现在的代码直接使用Keccak256作为函数名。总结为一句话：Ethereum和Solidity智能合约代码中的SHA3是指Keccak256，而不是标准的NIST-SHA3，为了避免混淆，直接在合约代码中写成Keccak256是最清晰的。
+        //--------------------------------------
+        //bytes32---
+        //没有找到bytes32作为函数的相关说明，我的初步理解是，就参数转换为bytes32类型的数据
+        //bytes4---
+        //我认为理解起来相当于强制转换的使用。
+        //_spender.call----
+        //http://www.chidaolian.com/article-6311-1
+        //节点.call(要调用的目标（即节点）合约中的函数方法选择器，此选择的函数需要的多个参数)
+        //根据此博文的描述，使用call调用是高风险的，因此 发现其它博文中的示例代码没有使用这种写法。
+        //如：https://mp.weixin.qq.com/s/foM1QWvsqGTdHxHTmjczsw
+        //中是这样来书写的：
+        //TokenRecipient(_recipient).receiveApproval(msg.sender,
+        //                                     _value,
+        //                                     address(this),
+        //                                     _extraData);
+        //此处的_recipient应当指的就是授受授权与提供服务的服务合约的地址。
+        //而TokenRecipient是使用interface方式定义的一个抽象合约(只能作为基类合约供其它合约继承，抽象合约中的函数定义是空的)，不过Interface定义的这种抽象合约与之前 直接用contract定义的似乎不同。
+        //用interface定义的这个抽象合约，就是专门用以跨合约之间进行函数方法的相互调用与交互的，
+        //见博文：https://blog.csdn.net/weixin_34291004/article/details/91902209
+        //我尚且没有完全理解。不过这种方法是否就比调用call的方法要更安全呢？
+        //那这儿的这句代码也就相当于调用了服务合约的receiveApproval()方法，用以同时完成接受授权并接收收到的data数据并处理数据，完成提供的本次服务。
+
+        //无论结果如何，本函数都返回成功标志，这合理？
+        return true;
+    }
+
+}
+
+```
+
+【今天的自学感悟分享】
+随着自学了越来越多的跨界的领域，我发现，这世界上的工作大概分为两种——
+有一种是，干得越辛苦，干得越卖力，就会在这条道上陷得越深，然后再没有看到的领域，一旦这个领域消失，就再也无法适应别的道路。
+另一种是，在做的过程中，可以不断地升级自己的认知和大脑，使自己见识越来越多的领域，可以在有限的人生中经历更多的可能，有更多的选择。
+然而不幸的是，90%的工作是属于第一种的，我也不例外，我看到这可怕的结局，于是我要逃出生天。
+这就是我始终在坚持自学的原动力所在，当一个人有了这样的动力的时候，就好像走在一条满是繁花美景的大路向着似乎遥不可及的目标走过去，因为有了这样的动力，所以这些年来，我从来没有停下来留恋于任何一个已经熟悉的生活状态，留恋于路旁也许美丽的风景；因为有了这样的动力，我就知道我不能停下来，不敢停下来。
+这就是自学原动力的重大作用，就好像一辆车开始在强大原动力的驱动下开始风驰电掣，哪还可能会被别的什么所拦住而停止下来呢？
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1508 
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/270217123 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/av96569552/ 
+
