@@ -1,0 +1,694 @@
+孤荷凌寒自学第124天区块链038
+以太坊的 erc20代币08
+【主要内容】
+今天继续使用erc20标准规范按一篇网络博文的教程进行亲自敲打代码来写一个可以发行token的智能合约。今天只好另找一个功能更完备的智能合约来进行学习和部署，合约部署成功，但不知为何调用合约中的函数方法失败。学习共用时53分钟。
+（此外整理作笔记花费了约64分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【学习笔记】
+一、今天理解了在remix在线编译器中，sol文件的import引用要在路径中使用./这样的格式：
+于是StandardToken.sol被修改为：
+```
+pragma solidity ^0.4.4;
+
+import "./Token.sol";
+
+contract StandardToken is Token{
+    mapping (address => uint256) balances;
+    mapping (address => mapping (address => uint256)) allowed;
+    uint256 public totalSupply;
+    function transfer(address _to,uint256 _value) returns (bool success){
+        //此函数仅用于调用合约的节点（或者理解为创建这个合约的节点？)地址进行代币的发送到_to形参指定的节点地址。
+        //可以发送的代币的数量_value这个形参的数值类型是 uint256，可以理解为只能是大于等于零的数，且最大值为2^256-1（为什么要减一呢？因为从0开始）
+        //实际上这个形参的数值类型就限定了最大可以发送的代币的数量，最多只允许2^256-1。
+        //下一行代码要进行发送方现有代币余额的检查，以确认可以发送这么多的代币。
+        if (balances[msg.sender]>=_value && _value>0){
+            //--如果发送方节点有这么多_value，那么执行代币在两个节点间的转移
+            balances[msg.sender]-=_value;
+            balances[_to]+=_value;
+            //---触发事件----
+            Transfer(msg.sender,_to,_value);
+            //--返回处理结果----
+            return true;
+        }else{
+            return false;
+        }
+
+    }
+
+    function transferFrom(address _from,address _to,uint256 _value) returns (bool success){
+        //此函数形参_from指定的节点地址进行代币的发送到_to形参指定的节点地址。(是否是在进行授权节点（合约的节点？）的代币支配转移？)
+        //可以发送的代币的数量_value这个形参的数值类型是 uint256，可以理解为只能是大于等于零的数，且最大值为2^256-1（为什么要减一呢？因为从0开始）
+        //实际上这个形参的数值类型就限定了最大可以发送的代币的数量，最多只允许2^256-1。
+        //下一行代码要进行发送方现有代币余额的检查，以确认可以发送这么多的代币。
+        //同时检查，发送方授权给授权接受方的可支配代币金额是否大于等于_value
+        if (balances[_from]>=_value && allowed[_from][msg.sender]>=_value && _value>0){
+            //allowed[_from][msg.sender]中：
+            //_from指的是代币真正的发送方（此节点代币才真正减少），而[msg.sender]指的是_from授权的接受节点（此节点可以动用_from节点限定数量的_value）
+            //为什么这儿的授权接受方是[msg.sender]没有完全理解 。
+            //--如果发送方节点有这么多_value，那么执行代币在两个节点间的转移
+            balances[_from]-=_value; //真正发送代币的节点的代币数量减少
+            balances[_to]+=_value; //接收代币的节点代币数量增加
+            allowed[_from][msg.sender]-=_value; //授权的可动用的代币数量也减少
+            //上一行与后面的approve()函数中的allowed的对象多重列表的表示感觉有点混乱，不好理解，其实原因是：
+            //此函数一般由之前接受过某节点（这儿指_from节点）授权的节点来调用，因此此处allowed对象表示接受授权的节点就是【msg.sender】(指当前调用合约的这个节点)
+
+            //---触发事件----
+            Transfer(_from,_to,_value);
+            //--返回处理结果----
+            return true;
+        }else{
+            return false;
+        }
+
+    }
+
+    function balanceOf(address _owner) constant returns (uint256 balance){
+        //此合约函数用于外部调用合约时，返回指定节点_owner目前的代币余额。
+        return balances[_owner];
+    }
+
+    function approve(address _spender, uint256 _value) returns (bool success) {
+        //此合约由调用合约的节点（msg.sender）向指定的节点_spender授权，让_spender节点可以调用发起授权的节点指定_value数量的值。
+        //调用此合约的这个函数方法的节点，将通过此函数方法发起授权，因此 这儿——调用此合约的节点：msg.sender就是发起授权的一方。
+        allowed[msg.sender][_spender]=_value;
+        //下面显式引发事件
+        //super.Approve(msg.sender,_spender,_value);
+        return true;
+    }
+
+    function allowance(address _owner,address _spender) returns (uint256 remaining){
+        //return uint256(allowed[_owner][_sender]);
+        return 245;
+    }
+
+}
+
+```
+
+ghlhToken.sol现在变成：
+```
+pragma solidity ^0.4.4;
+
+import "./StandardToken.sol";
+
+contract ghlhToken is StandardToken {
+
+    //下一个函数没有函数命名名称，属于特殊的函数
+    //此函数的基本作用是，如果收到了没有指明任何相关信息的代币发送给此合约，就将这些代币扔回去。
+    //此种函数名叫：Fallback 函数
+    function (){
+        throw; //这个单词的意思就是【扔】
+    }
+
+    //定义与自发行的币相关的一些属性
+    string public name;                   //token名称: ghlhToken 
+    uint8 public decimals;                //小数位，此币种最小的单位，允许到小数点后第几位
+    string public symbol;                 //标识，就是代币的缩写，如BTC
+    string public version = 'H0.1';       //版本号
+    //现在定义合约的建构函数
+    function ghlhToken(
+        uint256 _initialAmount,
+        string _tokenName,
+        uint8 _decimalUnits,
+        string _tokenSymbol
+    ){
+        balances[msg.sender]=_initialAmount; //这意味着，部署合约的节点首先获得全部要发行的币的总量
+        //balances这个状态变量，是在此合约继承的父合约中定义的。
+        totalSupply=_initialAmount; //此状态变量记录下总共要发行的币的总量。
+        name = _tokenName;                                   // token名称
+        decimals = _decimalUnits;                            // token小数位
+        symbol = _tokenSymbol;                               // token标识
+    }
+
+    //下面这个函数不属于erc20标准接口，同时完成授权与将要发送给服务合约的数据发送出去。
+    //https://mp.weixin.qq.com/s/foM1QWvsqGTdHxHTmjczsw 此博文对此有比较详细的解释，不过仍然没有完全理解
+    function approveAndCall(address _spender, uint256 _value, bytes _extraData) returns (bool success) {
+        allowed[msg.sender][_spender] = _value;
+        Approval(msg.sender, _spender, _value); //引发事件，广播一次授权事件正在发生。
+
+        //调用你想要通知的服务合约的 receiveApprovalcall 方法（是指提供服务的服务合约中的方法，不是当前（当前是一个代币合约）合约中的函数） ，在服务合约（就是接收实际要处理的，由发送方（此处批授权发起节点）发送的数据的合约方）中此函数的定义内容大致如下：
+        //receiveApproval(address _from, uint256 _value, address _tokenContract, bytes _extraData)
+
+        //下一语句，先检查调用服务合约的receiveApprovalcall()方法是否成功，如果不成功，就throw；这个时候，是否意味着还是应当调用标准的approve()方法？
+        if(!_spender.call(bytes4(bytes32(sha3("receiveApproval(address,uint256,address,bytes)"))), msg.sender, _value, this, _extraData)) { throw; }
+        
+        //---首先来自中文版官方文档的说明：https://solidity-cn.readthedocs.io/zh/develop/units-and-global-variables.html?highlight=%20keccak256#id3
+        //sha3---
+        //sha3(...) returns (bytes32):
+        //等价于 keccak256。
+        //keccak256---
+        //keccak256(...) returns (bytes32):
+        //计算 (tightly packed) arguments 的 Ethereum-SHA-3 （Keccak-256）哈希。
+        //我的理解就是，将后面参数直接求出其哈希值来
+        //博文：https://www.jianshu.com/p/682c75b10392 的说明如下：
+        //SHA3采用Keccak算法，在很多场合下Keccak和SHA3是同义词，但在2015年8月SHA3最终完成标准化时，NIST调整了填充算法，标准的SHA3和原先的Keccak算法就有所区别了。在早期的Ethereum相关代码中，普遍使用SHA3代指Keccak256，为了避免和NIST标准的SHA3混淆，现在的代码直接使用Keccak256作为函数名。总结为一句话：Ethereum和Solidity智能合约代码中的SHA3是指Keccak256，而不是标准的NIST-SHA3，为了避免混淆，直接在合约代码中写成Keccak256是最清晰的。
+        //--------------------------------------
+        //bytes32---
+        //没有找到bytes32作为函数的相关说明，我的初步理解是，就参数转换为bytes32类型的数据
+        //bytes4---
+        //我认为理解起来相当于强制转换的使用。
+        //_spender.call----
+        //http://www.chidaolian.com/article-6311-1
+        //节点.call(要调用的目标（即节点）合约中的函数方法选择器，此选择的函数需要的多个参数)
+        //根据此博文的描述，使用call调用是高风险的，因此 发现其它博文中的示例代码没有使用这种写法。
+        //如：https://mp.weixin.qq.com/s/foM1QWvsqGTdHxHTmjczsw
+        //中是这样来书写的：
+        //TokenRecipient(_recipient).receiveApproval(msg.sender,
+        //                                     _value,
+        //                                     address(this),
+        //                                     _extraData);
+        //此处的_recipient应当指的就是授受授权与提供服务的服务合约的地址。
+        //而TokenRecipient是使用interface方式定义的一个抽象合约(只能作为基类合约供其它合约继承，抽象合约中的函数定义是空的)，不过Interface定义的这种抽象合约与之前 直接用contract定义的似乎不同。
+        //用interface定义的这个抽象合约，就是专门用以跨合约之间进行函数方法的相互调用与交互的，
+        //见博文：https://blog.csdn.net/weixin_34291004/article/details/91902209
+        //我尚且没有完全理解。不过这种方法是否就比调用call的方法要更安全呢？
+        //那这儿的这句代码也就相当于调用了服务合约的receiveApproval()方法，用以同时完成接受授权并接收收到的data数据并处理数据，完成提供的本次服务。
+
+        //无论结果如何，本函数都返回成功标志，这合理？
+        return true;
+    }
+
+}
+
+```
+这下子解决了提示找不到引用文件 的问题，然而 ，提示声明不存在 的两处地方仍然报错，于是不得已，只好放弃此合约，进而寻找其它合约代码。
+二、从github上找到了一个更完备的合约代码
+博文：https://blog.csdn.net/hopeztm/article/details/81515816
+github源码地址：https://github.com/tianmz1987/dnc
+此代码功能更复杂，但经过之前对solidity的不懈努力学习，今天愕然地发现，我居然可以轻松地读懂其中的代码内容，也许这就是自学，深入研究自力更生带来的好处吧。
+我修改了源文件的一些代币命名的内容，修改后的代码如下：
+```
+pragma solidity ^0.4.21;
+
+/**
+ * openzeppelin-solidity@1.9.0/contracts/math/SafeMath.sol
+ */
+
+/**
+ * @title SafeMath
+ * @dev Math operations with safety checks that throw on error
+ */
+library SafeMath {
+
+  /**
+  * @dev Multiplies two numbers, throws on overflow.
+  */
+  function mul(uint256 a, uint256 b) internal pure returns (uint256 c) {
+    if (a == 0) {
+      return 0;
+    }
+    c = a * b;
+    assert(c / a == b);
+    return c;
+  }
+
+  /**
+  * @dev Integer division of two numbers, truncating the quotient.
+  */
+  function div(uint256 a, uint256 b) internal pure returns (uint256) {
+    // assert(b > 0); // Solidity automatically throws when dividing by 0
+    // uint256 c = a / b;
+    // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+    return a / b;
+  }
+
+  /**
+  * @dev Subtracts two numbers, throws on overflow (i.e. if subtrahend is greater than minuend).
+  */
+  function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+    assert(b <= a);
+    return a - b;
+  }
+
+  /**
+  * @dev Adds two numbers, throws on overflow.
+  */
+  function add(uint256 a, uint256 b) internal pure returns (uint256 c) {
+    c = a + b;
+    assert(c >= a);
+    return c;
+  }
+}
+
+/**
+ * openzeppelin-solidity@1.9.0/contracts/ownership/Ownable.sol
+ */
+
+/**
+ * @title Ownable
+ * @dev The Ownable contract has an owner address, and provides basic authorization control
+ * functions, this simplifies the implementation of "user permissions".
+ */
+contract Ownable {
+  address public owner;
+
+  event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+  /**
+   * @dev The Ownable constructor sets the original `owner` of the contract to the sender
+   * account.
+   */
+  function Ownable() public {
+    owner = msg.sender;
+  }
+
+  /**
+   * @dev Throws if called by any account other than the owner.
+   */
+  modifier onlyOwner() {
+    require(msg.sender == owner);
+    _;
+  }
+
+  /**
+   * @dev Allows the current owner to transfer control of the contract to a newOwner.
+   * @param newOwner The address to transfer ownership to.
+   */
+  function transferOwnership(address newOwner) public onlyOwner {
+    require(newOwner != address(0));
+    emit OwnershipTransferred(owner, newOwner);
+    owner = newOwner;
+  }
+
+}
+
+/**
+ * openzeppelin-solidity@1.9.0/contracts/token/ERC20/ERC20Basic.sol
+ */
+
+/**
+ * @title ERC20Basic
+ * @dev Simpler version of ERC20 interface
+ * @dev see https://github.com/ethereum/EIPs/issues/179
+ */
+contract ERC20Basic {
+  function totalSupply() public view returns (uint256);
+  function balanceOf(address who) public view returns (uint256);
+  function transfer(address to, uint256 value) public returns (bool);
+  event Transfer(address indexed from, address indexed to, uint256 value);
+}
+
+/**
+ * openzeppelin-solidity@1.9.0/contracts/token/ERC20/ERC20.sol
+ */
+
+/**
+ * @title ERC20 interface
+ * @dev see https://github.com/ethereum/EIPs/issues/20
+ */
+contract ERC20 is ERC20Basic {
+  function allowance(address owner, address spender) public view returns (uint256);
+  function transferFrom(address from, address to, uint256 value) public returns (bool);
+  function approve(address spender, uint256 value) public returns (bool);
+  event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+
+/**
+ * openzeppelin-solidity@1.9.0/contracts/token/ERC20/BasicToken.sol
+ */
+
+/**
+ * @title Basic token
+ * @dev Basic version of StandardToken, with no allowances.
+ */
+contract BasicToken is ERC20Basic {
+  using SafeMath for uint256;
+
+  mapping(address => uint256) balances;
+
+  uint256 totalSupply_;
+
+  /**
+  * @dev total number of tokens in existence
+  */
+  function totalSupply() public view returns (uint256) {
+    return totalSupply_;
+  }
+
+  /**
+  * @dev transfer token for a specified address
+  * @param _to The address to transfer to.
+  * @param _value The amount to be transferred.
+  */
+  function transfer(address _to, uint256 _value) public returns (bool) {
+    require(_to != address(0));
+    require(_value <= balances[msg.sender]);
+
+    balances[msg.sender] = balances[msg.sender].sub(_value);
+    balances[_to] = balances[_to].add(_value);
+    emit Transfer(msg.sender, _to, _value);
+    return true;
+  }
+
+  /**
+  * @dev Gets the balance of the specified address.
+  * @param _owner The address to query the the balance of.
+  * @return An uint256 representing the amount owned by the passed address.
+  */
+  function balanceOf(address _owner) public view returns (uint256) {
+    return balances[_owner];
+  }
+
+}
+
+/**
+ * openzeppelin-solidity@1.9.0/contracts/token/ERC20/StandardToken.sol
+ */
+
+/**
+ * @title Standard ERC20 token
+ *
+ * @dev Implementation of the basic standard token.
+ * @dev https://github.com/ethereum/EIPs/issues/20
+ * @dev Based on code by FirstBlood: https://github.com/Firstbloodio/token/blob/master/smart_contract/FirstBloodToken.sol
+ */
+contract StandardToken is ERC20, BasicToken {
+
+  mapping (address => mapping (address => uint256)) internal allowed;
+
+  /**
+   * @dev Transfer tokens from one address to another
+   * @param _from address The address which you want to send tokens from
+   * @param _to address The address which you want to transfer to
+   * @param _value uint256 the amount of tokens to be transferred
+   */
+  function transferFrom(address _from, address _to, uint256 _value) public returns (bool) {
+    require(_to != address(0));
+    require(_value <= balances[_from]);
+    require(_value <= allowed[_from][msg.sender]);
+
+    balances[_from] = balances[_from].sub(_value);
+    balances[_to] = balances[_to].add(_value);
+    allowed[_from][msg.sender] = allowed[_from][msg.sender].sub(_value);
+    emit Transfer(_from, _to, _value);
+    return true;
+  }
+
+  /**
+   * @dev Approve the passed address to spend the specified amount of tokens on behalf of msg.sender.
+   *
+   * Beware that changing an allowance with this method brings the risk that someone may use both the old
+   * and the new allowance by unfortunate transaction ordering. One possible solution to mitigate this
+   * race condition is to first reduce the spender's allowance to 0 and set the desired value afterwards:
+   * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
+   * @param _spender The address which will spend the funds.
+   * @param _value The amount of tokens to be spent.
+   */
+  function approve(address _spender, uint256 _value) public returns (bool) {
+    allowed[msg.sender][_spender] = _value;
+    emit Approval(msg.sender, _spender, _value);
+    return true;
+  }
+
+  /**
+   * @dev Function to check the amount of tokens that an owner allowed to a spender.
+   * @param _owner address The address which owns the funds.
+   * @param _spender address The address which will spend the funds.
+   * @return A uint256 specifying the amount of tokens still available for the spender.
+   */
+  function allowance(address _owner, address _spender) public view returns (uint256) {
+    return allowed[_owner][_spender];
+  }
+
+  /**
+   * @dev Increase the amount of tokens that an owner allowed to a spender.
+   *
+   * approve should be called when allowed[_spender] == 0. To increment
+   * allowed value is better to use this function to avoid 2 calls (and wait until
+   * the first transaction is mined)
+   * From MonolithDAO Token.sol
+   * @param _spender The address which will spend the funds.
+   * @param _addedValue The amount of tokens to increase the allowance by.
+   */
+  function increaseApproval(address _spender, uint _addedValue) public returns (bool) {
+    allowed[msg.sender][_spender] = allowed[msg.sender][_spender].add(_addedValue);
+    emit Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
+    return true;
+  }
+
+  /**
+   * @dev Decrease the amount of tokens that an owner allowed to a spender.
+   *
+   * approve should be called when allowed[_spender] == 0. To decrement
+   * allowed value is better to use this function to avoid 2 calls (and wait until
+   * the first transaction is mined)
+   * From MonolithDAO Token.sol
+   * @param _spender The address which will spend the funds.
+   * @param _subtractedValue The amount of tokens to decrease the allowance by.
+   */
+  function decreaseApproval(address _spender, uint _subtractedValue) public returns (bool) {
+    uint oldValue = allowed[msg.sender][_spender];
+    if (_subtractedValue > oldValue) {
+      allowed[msg.sender][_spender] = 0;
+    } else {
+      allowed[msg.sender][_spender] = oldValue.sub(_subtractedValue);
+    }
+    emit Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
+    return true;
+  }
+
+}
+
+/**
+ * openzeppelin-solidity@1.9.0/contracts/token/ERC20/BurnableToken.sol
+ */
+
+/**
+ * @title Burnable Token
+ * @dev Token that can be irreversibly burned (destroyed).
+ */
+contract BurnableToken is BasicToken {
+
+  event Burn(address indexed burner, uint256 value);
+
+  /**
+   * @dev Burns a specific amount of tokens.
+   * @param _value The amount of token to be burned.
+   */
+  function burn(uint256 _value) public {
+    _burn(msg.sender, _value);
+  }
+
+  function _burn(address _who, uint256 _value) internal {
+    require(_value <= balances[_who]);
+    // no need to require value <= totalSupply, since that would imply the
+    // sender's balance is greater than the totalSupply, which *should* be an assertion failure
+
+    balances[_who] = balances[_who].sub(_value);
+    totalSupply_ = totalSupply_.sub(_value);
+    emit Burn(_who, _value);
+    emit Transfer(_who, address(0), _value);
+  }
+}
+
+/**
+ * openzeppelin-solidity@1.9.0/contracts/token/ERC20/MintableToken.sol
+ */
+
+/**
+ * @title Mintable token
+ * @dev Simple ERC20 Token example, with mintable token creation
+ * @dev Issue: * https://github.com/OpenZeppelin/openzeppelin-solidity/issues/120
+ * Based on code by TokenMarketNet: https://github.com/TokenMarketNet/ico/blob/master/contracts/MintableToken.sol
+ */
+contract MintableToken is StandardToken, Ownable {
+  event Mint(address indexed to, uint256 amount);
+  event MintFinished();
+
+  bool public mintingFinished = false;
+
+  modifier canMint() {
+    require(!mintingFinished);
+    _;
+  }
+
+  /**
+   * @dev Function to mint tokens
+   * @param _to The address that will receive the minted tokens.
+   * @param _amount The amount of tokens to mint.
+   * @return A boolean that indicates if the operation was successful.
+   */
+  function mint(address _to, uint256 _amount) onlyOwner canMint public returns (bool) {
+    totalSupply_ = totalSupply_.add(_amount);
+    balances[_to] = balances[_to].add(_amount);
+    emit Mint(_to, _amount);
+    emit Transfer(address(0), _to, _amount);
+    return true;
+  }
+
+  /**
+   * @dev Function to stop minting new tokens.
+   * @return True if the operation was successful.
+   */
+  function finishMinting() onlyOwner canMint public returns (bool) {
+    mintingFinished = true;
+    emit MintFinished();
+    return true;
+  }
+}
+
+/**
+ * openzeppelin-solidity@1.9.0/contracts/token/ERC20/CappedToken.sol
+ */
+
+/**
+ * @title Capped token
+ * @dev Mintable token with a token cap.
+ */
+contract CappedToken is MintableToken {
+
+  uint256 public cap;
+
+  //----限制了最大能够铸币的数量-------
+  //----这是此合约的建构函数
+  function CappedToken(uint256 _cap) public {
+    require(_cap > 0);
+    cap = _cap;
+  }
+
+  /**
+   * @dev Function to mint tokens
+   * @param _to The address that will receive the minted tokens.
+   * @param _amount The amount of tokens to mint.
+   * @return A boolean that indicates if the operation was successful.
+   */
+  function mint(address _to, uint256 _amount) onlyOwner canMint public returns (bool) {
+    require(totalSupply_.add(_amount) <= cap);
+
+    return super.mint(_to, _amount);
+  }
+
+}
+
+/**
+ * ghlh Token, totalSupply 100000000000000000
+ */
+contract ghlhToken is BurnableToken, CappedToken(100000000000000000) {
+    string public name = "ghlh Token";
+    string public symbol = "GHLH";
+    uint8 public decimals = 8;
+
+    function burn(uint256 _value) onlyOwner public {
+        super.burn(_value);
+    }
+}
+
+```
+编译与部署都轻松通过。
+也成功在metamask狐狸钱包中，添加了自己自定义的代币。然而接下来的调用智能合约就继续面临失败的境遇了，不过在自学的道路中不断遭遇失败早已经使我变得麻木，内心再无半点波澜，不断尝试，思考，最终虽然仍以失败告终，不过却也还算是很有收获。
+
+【尝试通过python调用自己的代币合约来进行铸币】
+在此代币合约中，有一个只有创建（部署）此合约的节点地址才有权进行的铸币（Mint）方法 ，于是我想为自己的ETH地址，就是狐狸钱包的地址铸币，按之前写的的调用智能合约的方法 ，Py代码如下：
+```
+import time
+from web3 import Web3, HTTPProvider
+
+import contract_abi
+
+contract_address="0xf31700c1b97f0ca3d5f228a67da7856568e14422"  #GHLH代币合约地址，就是我自己创建（部署）的智能合约
+wallet_private_key="D8EF07D32389148E9DA6C54237BD5A39C92917D59340AA5D6064485C01E96FB2" #狐狸钱包的私钥
+wallet_address="0x5227C3EF48B5A1bcF784593e46D9579D26a3b592" #狐狸钱包的公钥，就是钱包地址，是eth网络上的一个节点。
+
+w3 = Web3(HTTPProvider("https://ropsten.infura.io/v3/79124269dc454e47bee73f964c971d3c")) #里面的参数字符串是在infura.io网站上申请 到的一个节点地址。
+
+w3.eth.enable_unaudited_features() #确认我们知道可能会发生问题的情况。
+
+contract = w3.eth.contract(address = contract_address, abi = contract_abi.abi)
+#---上一行中，contract_abi.abi，表示引用了存放在contract_abi.py文件中的变量abi的列表
+#---整个代码就是通过智能合约在eth网络上的地址 和对应ABI连接列表来得到指定的智能合约对象contract
+
+print(w3.eth.blockNumber) #打印eth网络最后一个区块的id
+
+def mintGhlhTokenToME(amount_for_ghlh):
+    print(contract.functions.mint(wallet_address,amount_for_ghlh).call())
+    #这儿失败的原因，怀疑是必须要设置GAS以交易方式 发送才行，而不是直接调用 。
+
+mintGhlhTokenToME(100)
+#print(ispass)
+
+```
+一切顺利，不过，在真正调用合约的方法Mint()时却报了长长的一串错误：
+```
+Traceback (most recent call last):
+  File "G:\w10_1\python\python365\lib\site-packages\web3\contract.py", line 1372, in call_contract_function
+    output_data = decode_abi(output_types, return_data)
+  File "G:\w10_1\python\python365\lib\site-packages\eth_abi\abi.py", line 96, in decode_abi
+    return decoder(stream)
+  File "G:\w10_1\python\python365\lib\site-packages\eth_abi\decoding.py", line 118, in __call__
+    return self.decode(stream)
+  File "G:\w10_1\python\python365\lib\site-packages\eth_utils\functional.py", line 46, in inner
+    return callback(fn(*args, **kwargs))
+  File "G:\w10_1\python\python365\lib\site-packages\eth_abi\decoding.py", line 164, in decode
+    yield decoder(stream)
+  File "G:\w10_1\python\python365\lib\site-packages\eth_abi\decoding.py", line 118, in __call__
+    return self.decode(stream)
+  File "G:\w10_1\python\python365\lib\site-packages\eth_abi\decoding.py", line 186, in decode
+    raw_data = self.read_data_from_stream(stream)
+  File "G:\w10_1\python\python365\lib\site-packages\eth_abi\decoding.py", line 296, in read_data_from_stream
+    len(data),
+eth_abi.exceptions.InsufficientDataBytes: Tried to read 32 bytes.  Only got 0 bytes
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "c:\Users\pw\.vscode\extensions\ms-python.python-2019.6.24221\pythonFiles\ptvsd_launcher.py", line 43, in <module>
+    main(ptvsdArgs)
+  File "c:\Users\pw\.vscode\extensions\ms-python.python-2019.6.24221\pythonFiles\lib\python\ptvsd\__main__.py", line 434, in main
+    run()
+  File "c:\Users\pw\.vscode\extensions\ms-python.python-2019.6.24221\pythonFiles\lib\python\ptvsd\__main
+
+````
+如之前的做法，我尝试锚定web3.py文件的错误代码点，却无法锚定。
+初步判断错误的核心在于，使用:
+contract.functions.mint(wallet_address,amount_for_ghlh).call()
+方式调用铸币方法，是否合适，因为这应当也算是一次事务（交易），这种调用 方法 ，却没有指明交易双方及gas设置等问题，因为上面的错误提示中，显示：
+eth_abi.exceptions.InsufficientDataBytes: Tried to read 32 bytes.  Only got 0 bytes
+
+【直接在remix的deploy and run transactions的界面上进行合约调试也无法铸币】
+于是我转而在remix在线环境上，到deploy and run transactions界面进行直接调用铸币方法进行调试
+首先是通过：add Address模式添加自己的合约地址
+0xf31700c1b97f0ca3d5f228a67da7856568e14422
+然后，在最下面选择合约名称再选择其中的方法 mint通过
+通过这样的方式调用合约，首先出现提示：
+Gas estimation failed
+Gas estimation errored with the following message (see below). The transaction execution will likely fail. Do you want to force sending? 
+gas required exceeds allowance or always failing transaction
+强制发送交易（事务）后，果然要求指定GAS,本以为指定了gas就应当没有问题了，结果最终还是失败了，提示为：
+Warning! Error encountered during contract execution [Reverted]
+
+今天的学习到此就只好以失败收场。
+恳请高手不吝指教，定将成分感激。明天继续奋战吧。
+
+【学习后记】
+虽然今天铸币没有成功，但从智能合约的代码中，却看到了此生从没深入理解过的东西——货币到底是什么？当我——一个渺小的我都可以铸币的时候，这意味着什么？
+又想到facebook早些时候为什么一定要开展libra项目进行企业级的铸币，突然觉得自己是需要更广泛的学习经济学相关内容的时候了。
+朋友们，对货币的本质你有什么样的看法呢？
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1513  
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/271639313 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV127411d7us/ 
+链接：https://pan.baidu.com/s/15b42k-idqcCd533VWAObZQ 
+提取码：nbow
+
