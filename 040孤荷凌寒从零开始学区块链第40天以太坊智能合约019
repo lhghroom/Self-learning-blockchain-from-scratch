@@ -1,0 +1,227 @@
+孤荷凌寒自学第126天
+区块链040以太坊的 erc20代币10
+【主要内容】
+今天继续使用erc20标准规范按另一篇网络博文的教程进行复制代码来批注一个可以发行代币的智能合约。学习共用时50分钟。
+（此外整理作笔记花费了约52分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【学习笔记】
+一、今天首先通过remix在线编译器成功向测试eth网络部署了合约：
+本次学习使用的智能合约一次性编译通过，没有任何警告信息与错误提示。
+部署成功的合约地址是：0xf89074dcdd8798b7e20b8cd88a9a38f27479411c
+
+二、今天通过写Python代码来与智能合约交互，明白了调用合约的两种情况
+一种情况是：需要支付gas才能调用的智能合约中的函数，这种合约中的函数的操作结果会被记录到区块中，因此需要矿工产出新区块并进行打包进区块的操作，因此需要支付gas，这种合约函数不是静态的，函数的修饰关键词不是使用的constant或view.
+要调用合约中的这种非静态函数，就需要在调用函数之后，调用函数的
+buildTransaction()
+方法来进行事务（交易）信息生成，以向网络支付gas。
+
+如：
+```
+    #下面调用了合约的发起授权的函数
+    txn_dict = contract.functions.approve(receiveadd,approvevalue).buildTransaction({
+        'chainId': 3, #指测试网络
+        'gas': 140000,
+        'gasPrice': w3.toWei('40', 'gwei'),
+        'nonce': nonce,
+    })
+    #开始执行发送方的私钥签名操作
+    signed_txn = w3.eth.account.signTransaction(txn_dict, private_key=sendprivate) #这儿使用发起授权操作节点的私钥来签名
+    #向网络发送交易信息
+    result = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+    #准备接收发送回执
+    tx_receipt = w3.eth.getTransactionReceipt(result)
+
+```
+第二种情况是：不需要支付gas就可以调用的合约中的函数，因为这些合约函数是静态函数，不产生需要打包到区块中的任何信息，因此直接调用即可，只需要调用合约函数的call()方法即可。
+如：
+```
+    return contract.functions.isApproved(address).call()
+```
+
+三、今天写的用以调用合约的Python代码
+```
+import time
+from web3 import Web3, HTTPProvider
+
+import contract_abi
+
+contract_address="0xf89074dcdd8798b7e20b8cd88a9a38f27479411c"  #CloudImage代币合约地址，就是我自己创建（部署）的智能合约
+
+#下面两行定义的是部署合约的节点（创世节点）的信息，私钥和公钥
+wallet_private_key="D8EF07D32389148E9DA6C54237BD5A39C92917D59340AA5D6064485C01E96FB2" #狐狸钱包的私钥
+wallet_address="0x5227C3EF48B5A1bcF784593e46D9579D26a3b592" #狐狸钱包的公钥，就是钱包地址，是eth网络上的一个节点。
+#下面两行定义的是节点2的信息
+w2pkey="D5EC2E192E0362FF81B46F6AFB331772F85CE9B4A79F2A0962858301E72AAF1C" #私钥
+w2add="0xe2d6c2f289c53B5aEA44C47293Ba179a3bfa21f0" #公钥
+
+#下面两行定义的是节点3 的信息
+w3pkey="1DCA9DF70412154D19FA78EFDAD1E9AC4AB60FB44DCFBC4323051DDF3141E98A" #私钥
+w3add="0x70c8461366d5368B1E79CBFc2Acf4ba56C745977" #公钥
+
+w3 = Web3(HTTPProvider("https://ropsten.infura.io/v3/79124269dc454e47bee73f964c971d3c")) #里面的参数字符串是在infura.io网站上申请 到的一个节点地址。
+
+w3.eth.enable_unaudited_features() #确认我们知道可能会发生问题的情况。
+
+contract = w3.eth.contract(address = contract_address, abi = contract_abi.abi)
+#---上一行中，contract_abi.abi，表示引用了存放在contract_abi.py文件中的变量abi的列表
+#---整个代码就是通过智能合约在eth网络上的地址 和对应ABI连接列表来得到指定的智能合约对象contract
+
+print(w3.eth.blockNumber) #打印eth网络最后一个区块的id
+
+def transfer(toadd,v):
+    nonce = w3.eth.getTransactionCount(wallet_address)
+
+    txn_dict = contract.functions.transfer(toadd,v).buildTransaction({
+        'chainId': 3, #指测试网络
+        'gas': 140000,
+        'gasPrice': w3.toWei('40', 'gwei'),
+        'nonce': nonce,
+    })
+
+    signed_txn = w3.eth.account.signTransaction(txn_dict, private_key=wallet_private_key)
+
+    result = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+
+    tx_receipt = w3.eth.getTransactionReceipt(result)
+
+    count = 0
+    while tx_receipt is None and (count < 30):
+
+        time.sleep(10)
+
+        tx_receipt = w3.eth.getTransactionReceipt(result)
+
+        print(tx_receipt)
+
+        count+=1
+
+    if tx_receipt is None:
+        return {'status': 'failed', 'error': 'timeout'}
+
+    processed_receipt = contract.events.Transfer().processReceipt(tx_receipt)
+    #---监测智能合约的事件的写法与调用智能合约的函数的写法是不同的。-----
+    #---将tx_receipt作为参数传入，作用是定位吗？用以确定是哪个互动引发的事件？
+
+    print(processed_receipt)
+    #---processed_receipt变量中得到了通过监听事件而获取的事件广播的全部信息(合约中的此事件广播了两个信息：一个是发起交易方的地址，二个是发表的意见。)
+    
+    output = "Address {} broadcasted the opinion: {}"\
+        .format(processed_receipt[0].args._soapboxer, processed_receipt[0].args._opinion)
+    #上一行代码将两个信息分别提取出来 ，使用到了.args子对象，args子对象中包含了智能合约指定事件的两个形参的标识名称。
+    #--注意这儿使用了processed_receipt[0]，说明包含了多个事件广播 的内容。
+    print(output)
+
+    return {'status': 'added', 'processed_receipt': processed_receipt}
+
+def approve(sendadd,receiveadd,sendprivate,approvevalue):
+    nonce = w3.eth.getTransactionCount(sendadd) #这儿使用的发起授权操作节点的地址
+
+    #下面调用了合约的发起授权的函数
+    txn_dict = contract.functions.approve(receiveadd,approvevalue).buildTransaction({
+        'chainId': 3, #指测试网络
+        'gas': 140000,
+        'gasPrice': w3.toWei('40', 'gwei'),
+        'nonce': nonce,
+    })
+    #开始执行发送方的私钥签名操作
+    signed_txn = w3.eth.account.signTransaction(txn_dict, private_key=sendprivate) #这儿使用发起授权操作节点的私钥来签名
+    #向网络发送交易信息
+    result = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+    #准备接收发送回执
+    tx_receipt = w3.eth.getTransactionReceipt(result)
+
+    count = 0
+    while tx_receipt is None and (count < 60):
+
+        time.sleep(10)
+
+        tx_receipt = w3.eth.getTransactionReceipt(result)
+
+        print(tx_receipt)
+
+        count+=1
+
+    #如果收到回执，检查
+    if tx_receipt is None:
+        return {'status': 'failed', 'error': 'timeout'}
+
+    #监听本次事务（交易）的事件广播
+    processed_receipt = contract.events.Approval().processReceipt(tx_receipt)
+    #---监测智能合约的事件的写法与调用智能合约的函数的写法是不同的。-----
+    #---将tx_receipt作为参数传入，作用是定位吗？用以确定是哪个互动引发的事件？
+
+    print(processed_receipt)
+    #---processed_receipt变量中得到了通过监听事件而获取的事件广播的全部信息(合约中的此事件广播了两个信息：一个是发起交易方的地址，二个是发表的意见。)
+    
+    output = "Address {} broadcasted the opinion: {}"\
+        .format(processed_receipt[0].args._soapboxer, processed_receipt[0].args._opinion)
+    #上一行代码将两个信息分别提取出来 ，使用到了.args子对象，args子对象中包含了智能合约指定事件的两个形参的标识名称。
+    #--注意这儿使用了processed_receipt[0]，说明包含了多个事件广播 的内容。
+    print(output)
+
+    return {'status': 'added', 'processed_receipt': processed_receipt}
+
+
+#执行代币转移---
+#r=transfer(w2add,100)
+#print(r)
+
+#节点一向节点二授权可以使用节点一的200个代币
+r=approve(wallet_address,w2add,wallet_private_key,200)
+print(r)
+
+```
+下面是部分执行结果：
+```
+#下面是转移代币的调用：
+6029924
+None
+None
+None
+None
+None
+None
+None
+None
+None
+None
+None
+None
+None
+None
+None
+NoneNoneNoneAttributeDict({'blockHash': HexBytes('0x2294b1a138e00eaacbfa5b6d960c244cf5ebde594ee613edcbe0529e0bd9ed02'), 'blockNumber': 6029926, 'contractAddress': None, 'cumulativeGasUsed': 144768, 'from': '0x5227c3ef48b5a1bcf784593e46d9579d26a3b592', 'gasUsed': 52059, 'logs': [AttributeDict({'address': '0xF89074dcDd8798B7E20b8cd88A9a38F27479411C', 'blockHash': HexBytes('0x2294b1a138e00eaacbfa5b6d960c244cf5ebde594ee613edcbe0529e0bd9ed02'), 'blockNumber': 6029926, 'data': '0x0000000000000000000000000000000000000000000000000000000000000064', 'logIndex': 1, 'removed': False, 'topics': [HexBytes('0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'), HexBytes('0x0000000000000000000000005227c3ef48b5a1bcf784593e46d9579d26a3b592'), HexBytes('0x000000000000000000000000e2d6c2f289c53b5aea44c47293ba179a3bfa21f0')], 'transactionHash': HexBytes('0xca06c97cf89de38927db10e422308ecc7288f2fbd3869d0bff7cbed2295f890a'), 'transactionIndex': 3})], 'logsBloom': HexBytes('0x00200000000000000000000080000000000000000000000000000000000000000000000000000040000000000400000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000040000000000000000000000002000000000000000000000000000010000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000'), 'status': 1, 'to': '0xf89074dcdd8798b7e20b8cd88a9a38f27479411c', 'transactionHash': HexBytes('0xca06c97cf89de38927db10e422308ecc7288f2fbd3869d0bff7cbed2295f890a'), 'transactionIndex': 3})
+```
+
+【我关于自学的思考分享】
+人生而痛苦，生活对于每个人来说都绝非易事，所以痛苦是常态，快乐要么是稍纵即逝，要么只是强颜欢笑。
+这是多数人的人生写照。正如《红楼梦》中的悲观看法：“那红尘中有却有些乐事，但不能永远依恃，况又有‘美中不足，好事多磨’八个字紧相连属，瞬息间则又乐极悲生，人非物换，究竟是到头一梦，万境归空，倒不如不去的好。”
+只是来不来，去不去都由不得自己呵！怎么办？
+除了伪装出我真的好开心这一烂招之外，真的就没有别的办法摆脱痛苦？
+其实坚持自学就是最好的一剂“去痛汤”！
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1524   
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/272607108 
+
+【学习过程屏幕录屏】
+链接：https://pan.baidu.com/s/1V3qz8-RvOanyUiKQMCDNRQ 
+提取码：omjz 
+
