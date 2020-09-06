@@ -1,0 +1,332 @@
+孤荷凌寒自学第128天
+区块链042以太坊的 erc20代币12
+【主要内容】
+今天继续使用erc20标准规范按另一篇网络博文的教程进行复制代码来批注一个可以发行代币的智能合约。学习共用时37分钟。
+（此外整理作笔记花费了约51分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【学习笔记】
+一、发现在我的电脑配置本地无全节点存储的情况下，简便的发起交易的合约调用是错误的：
+昨天了解到的另一种更简洁的调用方法
+如博文：https://blog.csdn.net/weixin_34214500/article/details/87496864
+```
+contract.transact({'from':sub_address, 'gas': 90000}).approve(gas_address,amount_of_token) 
+#授权gas_address可以从sub_address转移amount_of_token的代币
+contract.transact({'from':gas_address,
+'gas': 90000}).transferFrom(sub_address,wallet_address,1) 
+#授权转移
+```
+今天按此方法进行了尝试：
+```
+    #---采用简便的发起有gas交易的方法,没有手动的私钥签名方法，运行时报错
+    #r=contract.transact({'from':spenderadd, 'gas': 90000}).transferFrom(owneradd,toadd,tovalue)
+    #print(r)
+    '''
+        使用上面的方法，报错如下：
+        Traceback (most recent call last):
+        File "ptvsd_launcher.py", line 43, in <module>        
+        main(ptvsdArgs)
+        File "__main__.py", line 434, in main
+        run()
+        File "__main__.py", line 312, in run_file
+        runpy.run_path(target, run_name='__main__')  File "runpy.py", line 263, in run_path    pkg_name=pkg_name, script_name=fname)  File "runpy.py", line 96, in _run_module_code
+        mod_name, mod_spec, pkg_name, script_name)
+        File "runpy.py", line 85, in _run_code
+        exec(code, run_globals)
+        File "mint_contract.py", line 169, in <module>
+        transerFrom(w2add,wallet_address,w3add,50)
+        File "mint_contract.py", line 156, in traValueError: {'code': -32601, 'message': 'The method eth_sendTransaction does not exist/is not available'}
+    '''
+```
+最后还得手动进行私钥签名，然后再广播交易才行。
+
+三、今天完成的Py代码
+```
+import time
+from web3 import Web3, HTTPProvider
+
+import contract_abi
+
+contract_address="0xf89074dcdd8798b7e20b8cd88a9a38f27479411c"  #CloudImage代币合约地址，就是我自己创建（部署）的智能合约
+
+#下面两行定义的是部署合约的节点（创世节点）的信息，私钥和公钥
+wallet_private_key="D8EF07D32389148E9DA6C54237BD5A39C92917D59340AA5D6064485C01E96FB2" #狐狸钱包的私钥
+wallet_address="0x5227C3EF48B5A1bcF784593e46D9579D26a3b592" #狐狸钱包的公钥，就是钱包地址，是eth网络上的一个节点。
+#下面两行定义的是节点2的信息
+w2pkey="D5EC2E192E0362FF81B46F6AFB331772F85CE9B4A79F2A0962858301E72AAF1C" #私钥
+w2add="0xe2d6c2f289c53B5aEA44C47293Ba179a3bfa21f0" #公钥
+
+#下面两行定义的是节点3 的信息
+w3pkey="1DCA9DF70412154D19FA78EFDAD1E9AC4AB60FB44DCFBC4323051DDF3141E98A" #私钥
+w3add="0xb40599fB0366DCf0ffe86677b005b3f20Dfa29aE" #公钥
+
+#下面两行定义的是节点4 的信息
+w4pkey="B2F1B869D373791B49A9058F4AF90E7AEEB883EAA783AC6244A6D6157B7C7BE6" #私钥
+w4add="0x70c8461366d5368B1E79CBFc2Acf4ba56C745977" #公钥
+
+w3 = Web3(HTTPProvider("https://ropsten.infura.io/v3/79124269dc454e47bee73f964c971d3c")) #里面的参数字符串是在infura.io网站上申请 到的一个节点地址。
+
+w3.eth.enable_unaudited_features() #确认我们知道可能会发生问题的情况。
+
+contract = w3.eth.contract(address = contract_address, abi = contract_abi.abi)
+#---上一行中，contract_abi.abi，表示引用了存放在contract_abi.py文件中的变量abi的列表
+#---整个代码就是通过智能合约在eth网络上的地址 和对应ABI连接列表来得到指定的智能合约对象contract
+
+print(w3.eth.blockNumber) #打印eth网络最后一个区块的id
+
+def transfer(toadd,v):
+    nonce = w3.eth.getTransactionCount(wallet_address) #这里要求出的是，哪个节点发起交易，就返回指定节点地址发起的交易数。
+    '''
+    这个nonce不是矿工挖矿时进行工作量证明计算得到的nonce值（就是那个写在区块头中的Nonce值）
+    而是：https://blog.csdn.net/weixin_33941350/article/details/86836707
+    一个交易需要用到以下参数
+    var rawTx = {
+        nonce: '0x14',
+        gasPrice: '0x3B9ACA00', 
+        gasLimit: '0xC20A',
+        to: '0x5fb30123b9efedcd15094266948fb7c862279ee1', 
+        value: '0x00', 
+        data: '0x' + '60fe47b1' + '000000000000000000000000000000000000000000000000000000000000000a'
+    }
+    nonce ：纪录目前帐户送出的交易数，用来避免重放攻击，针对每一个账户nonce都是从0开始，每次送要加 1，当前面的nonce处理完成之后才会处理后面的nonce。以太坊系列（ETH&ETC）在发送交易有三个对应的RPC接口，分别是eth_sendTransaction、eth_sendRawTransaction和personal_sendTransaction。这三个接口发送（或构造发送内容时）都需要一个参数nonce。官方文档对此参数的解释是：整数类型，允许使用相同随机数覆盖自己发送的处于pending状态的交易。
+    可以用 RPC eth_getTransactionCount 查询目前账户的 nonce。同时此地址再发起一笔交易，如果通过eth_getTransactionCount获取的nonce值与上一个nonce值相同，用同样的nonce值再发出交易时，如果手续费高于原来的交易，那么第一笔交易将会被覆盖，如果手续费低于原来的交易就会发生异常。通常情况下，覆盖掉一笔处于pending状态的交易gas price需要高于原交易的110%。
+    gasPrice ：表示gas价格，以wei为单位。如果此gasPrice低于矿工期望的gasPrice，矿工将拒绝打包交易。
+    gasLimit ：gas是计算资源的计量单位，以太坊虚拟机EVM的每个操作都被分配了一个数字，用以表示它可以消耗的gas。因此每笔交易消耗的gas与此交易所需要的计算量和存储量有关。gasLimit设置了此次交易可以消耗的gas上限，如果交易实际消耗的gas少于或等于gasLimit，交易成功进行，并退还多余gas。否则此交易不但作废，这些已消耗的gas也无法返还，矿工仍能收到费用。费用的计算方法是实际消耗的gas*gasPrice。
+    '''
+
+    #下面的方法使用的是比较复杂一些的SendTransaction()方法来转移代币，----
+    #----简单的方法指transact(),如：
+    '''
+    contract.transact({'from':sub_address, 'gas': 90000}).approve(gas_address,amount_of_token) #授权gas_address可以从sub_address转移amount_of_token的代币
+    contract.transact({'from':gas_address, 'gas': 90000}).transferFrom(sub_address,wallet_address,1) #授权转移
+    '''
+    txn_dict = contract.functions.transfer(toadd,v).buildTransaction({
+        'chainId': 3, #指测试网络
+        'gas': 140000,
+        'gasPrice': w3.toWei('40', 'gwei'),
+        'nonce': nonce,
+    })
+
+    signed_txn = w3.eth.account.signTransaction(txn_dict, private_key=wallet_private_key)
+
+    result = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+
+    tx_receipt = w3.eth.getTransactionReceipt(result)
+
+    count = 0
+    while tx_receipt is None and (count < 30):
+
+        time.sleep(10)
+
+        tx_receipt = w3.eth.getTransactionReceipt(result)
+
+        print(tx_receipt)
+
+        count+=1
+
+    if tx_receipt is None:
+        return {'status': 'failed', 'error': 'timeout'}
+
+    processed_receipt = contract.events.Transfer().processReceipt(tx_receipt)
+    #---监测智能合约的事件的写法与调用智能合约的函数的写法是不同的。-----
+    #---将tx_receipt作为参数传入，作用是定位吗？用以确定是哪个互动引发的事件？
+
+    print(processed_receipt)
+    #---processed_receipt变量中得到了通过监听事件而获取的事件广播的全部信息(合约中的此事件广播了两个信息：一个是发起交易方的地址，二个是发表的意见。)
+    
+    output = "Address {} broadcasted the opinion: {}"\
+        .format(processed_receipt[0].args._from, processed_receipt[0].args._to)
+    #上一行代码将两个信息分别提取出来 ，使用到了.args子对象，args子对象中包含了智能合约指定事件的两个形参的标识名称。
+    #--注意这儿使用了processed_receipt[0]，说明包含了多个事件广播 的内容。
+    print(output)
+
+    return {'status': 'added', 'processed_receipt': processed_receipt}
+
+def approve(sendadd,receiveadd,sendprivate,approvevalue):
+    nonce = w3.eth.getTransactionCount(sendadd) #这儿使用的发起授权操作节点的地址
+
+    #下面调用了合约的发起授权的函数
+    txn_dict = contract.functions.approve(receiveadd,approvevalue).buildTransaction({
+        'chainId': 3, #指测试网络
+        'gas': 140000,
+        'gasPrice': w3.toWei('40', 'gwei'),
+        'nonce': nonce,
+    })
+    #开始执行发送方的私钥签名操作
+    signed_txn = w3.eth.account.signTransaction(txn_dict, private_key=sendprivate) #这儿使用发起授权操作节点的私钥来签名
+    #向网络发送交易信息
+    result = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+    #准备接收发送回执
+    tx_receipt = w3.eth.getTransactionReceipt(result)
+
+    count = 0
+    while tx_receipt is None and (count < 60):
+
+        time.sleep(10)
+
+        tx_receipt = w3.eth.getTransactionReceipt(result)
+
+        print(tx_receipt)
+
+        count+=1
+
+    #如果收到回执，检查
+    if tx_receipt is None:
+        return {'status': 'failed', 'error': 'timeout'}
+
+    #监听本次事务（交易）的事件广播
+    processed_receipt = contract.events.Approval().processReceipt(tx_receipt)
+    #---监测智能合约的事件的写法与调用智能合约的函数的写法是不同的。-----
+    #---将tx_receipt作为参数传入，作用是定位吗？用以确定是哪个互动引发的事件？
+
+    print(processed_receipt)
+    #---processed_receipt变量中得到了通过监听事件而获取的事件广播的全部信息(合约中的此事件广播了两个信息：一个是发起交易方的地址，二个是发表的意见。)
+    
+    output = "Address {} broadcasted the opinion: {}"\
+        .format(processed_receipt[0].args._owner, processed_receipt[0].args._spender)
+    #上一行代码将两个信息分别提取出来 ，使用到了.args子对象，args子对象中包含了智能合约指定事件的两个形参的标识名称。
+    #--注意这儿使用了processed_receipt[0]，说明包含了多个事件广播 的内容。
+    print(output)
+
+    return {'status': 'added', 'processed_receipt': processed_receipt}
+
+#查询一个节点向另一个节点授权可使用的代币目前总余额
+def getAllowance(owneradd,spenderadd):
+    return contract.functions.allowance(owneradd,spenderadd).call()
+
+#接受委托使用委托方代币的受托节点调用合约的transerFrom()方法转移委托方指定数量的代币给第三方
+def transerFrom(spenderadd,spenderprikey,owneradd,toadd,tovalue):
+    #---采用简便的发起有gas交易的方法,没有手动的私钥签名方法，运行时报错
+    #r=contract.transact({'from':spenderadd, 'gas': 90000}).transferFrom(owneradd,toadd,tovalue)
+    #print(r)
+    '''
+        使用上面的方法，报错如下：
+        Traceback (most recent call last):
+        File "ptvsd_launcher.py", line 43, in <module>        
+        main(ptvsdArgs)
+        File "__main__.py", line 434, in main
+        run()
+        File "__main__.py", line 312, in run_file
+        runpy.run_path(target, run_name='__main__')  File "runpy.py", line 263, in run_path    pkg_name=pkg_name, script_name=fname)  File "runpy.py", line 96, in _run_module_code
+        mod_name, mod_spec, pkg_name, script_name)
+        File "runpy.py", line 85, in _run_code
+        exec(code, run_globals)
+        File "mint_contract.py", line 169, in <module>
+        transerFrom(w2add,wallet_address,w3add,50)
+        File "mint_contract.py", line 156, in traValueError: {'code': -32601, 'message': 'The method eth_sendTransaction does not exist/is not available'}
+    '''
+    #---使用之前的方法
+    #---得到nonce值
+    nonce = w3.eth.getTransactionCount(spenderadd) #这儿使用的发起本次交易的操作节点的地址
+
+    #下面调用了合约的发起第三方交易的函数
+    txn_dict = contract.functions.transferFrom(owneradd,toadd,tovalue).buildTransaction({
+        'chainId': 3, #指测试网络
+        'gas': 140000,
+        'gasPrice': w3.toWei('40', 'gwei'),
+        'nonce': nonce,
+    })
+    #开始执行发送方的私钥签名操作
+    signed_txn = w3.eth.account.signTransaction(txn_dict, private_key=spenderprikey) #这儿使用发起本次交易（即之前接受了授权的）操作节点的私钥来签名
+    #向网络发送交易信息
+    result = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+    #准备接收发送回执
+    tx_receipt = w3.eth.getTransactionReceipt(result)
+
+    count = 0
+    while tx_receipt is None and (count < 60):
+
+        time.sleep(10)
+
+        tx_receipt = w3.eth.getTransactionReceipt(result)
+
+        print(tx_receipt)
+
+        count+=1
+
+    #如果收到回执，检查
+    if tx_receipt is None:
+        return {'status': 'failed', 'error': 'timeout'}
+
+    #监听本次事务（交易）的事件广播
+    processed_receipt = contract.events.Transfer().processReceipt(tx_receipt)
+    #---监测智能合约的事件的写法与调用智能合约的函数的写法是不同的。-----
+    #---将tx_receipt作为参数传入，作用是定位吗？用以确定是哪个互动引发的事件？
+
+    print(processed_receipt)
+    #---processed_receipt变量中得到了通过监听事件而获取的事件广播的全部信息(合约中的此事件广播了两个信息：一个是发起交易方的地址，二个是发表的意见。)
+    
+    output = "Address {} broadcasted the opinion: {}"\
+        .format(processed_receipt[0].args._from, processed_receipt[0].args._to)
+    #上一行代码将两个信息分别提取出来 ，使用到了.args子对象，args子对象中包含了智能合约指定事件的两个形参的标识名称。
+    #--注意这儿使用了processed_receipt[0]，说明包含了多个事件广播 的内容。
+    print(output)
+
+    return {'status': 'added', 'processed_receipt': processed_receipt}
+
+
+#执行代币转移---
+#r=transfer(w2add,100)
+#print(r)
+
+#节点一向节点二授权可以使用节点一的200个代币
+#r=approve(wallet_address,w2add,wallet_private_key,200)
+#print(r)
+
+#---节点二使用节点一的代币发送给节点三
+#k=transerFrom(w2add,w2pkey,wallet_address,w3add,80)
+#print(k)
+
+#---节点二使用节点一的代币发送给节点四
+k=transerFrom(w2add,w2pkey,wallet_address,w4add,50)
+print(k)
+
+#查询节点一授权给节点二的可用代币余额
+r=getAllowance(wallet_address,w2add)
+print('现在的可以授权代币余额：',r)
+```
+今天经过实际尝试，最终证实，当授权事务执行之后，可以由接受授权操作的spender节点代为发起一次交易事务，并在此事务中将发出授权操作的owner节点的指定数量的代币（在授权事务操作时规定的代币数量的金额之内）发送给第三方节点。
+于是，这次交易事务中，发起交易的是spender节点，则此事务的gas费用就由spender节点支付，且发起事务时手动执行的私钥签名也是使用的spender节点的私钥来进行签名：
+```
+    nonce = w3.eth.getTransactionCount(spenderadd) #这儿使用的发起本次交易的操作节点的地址,就是由spender节点发起本次交易事务。
+
+```
+私钥签名也是如此：
+```
+    #开始执行发送方的私钥签名操作
+    signed_txn = w3.eth.account.signTransaction(txn_dict, private_key=spenderprikey) #这儿使用发起本次交易（即之前接受了授权的spender）操作节点的私钥来签名
+    #向网络发送交易信息
+    result = w3.eth.sendRawTransaction(signed_txn.rawTransaction)
+    #准备接收发送回执
+    tx_receipt = w3.eth.getTransactionReceipt(result)
+
+
+```
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1534    
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/273473338 
+
+【学习过程屏幕录屏】
+链接：https://pan.baidu.com/s/1GK_TorQTh6V2NJy2cMFDOg 
+提取码：lpnh 
+B站：https://www.bilibili.com/video/BV1GE411c7GT/ 
+
