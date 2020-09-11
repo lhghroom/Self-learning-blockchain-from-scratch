@@ -1,0 +1,130 @@
+孤荷凌寒自学第132天
+区块链自学046天准备完成一个DAPP
+【主要内容】
+今天开始准备学习实战，做一个真正的依托于智能合约的DAPP。今天主要进行DAPP开发基础知识的学习储备，并开始着手探路，于是今天 的学习时间 多数都是在进行搜索学习。共耗时38分钟。
+（此外整理作笔记花费了约71分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【经过搜索学习，理解了DAPP的基本架构】
+传统APP的数据存储都依赖于数据库服务器，存放在数据库中，多数APP的数据都存放 在单一的数据库节点中——
+1.单机APP的数据肯定就存储在运行所在的机器设备的存储器中，只有这一个节点，此机器设备损毁或被复原则数据100%丢失。
+2.联网APP的数据多数也存储在一个数据库服务器上，只有这一个节点，一旦这个数据库服务器节点发生不测，那么数据也100%丢失。
+3.联网APP的数据有少数存储在一个集群的分散的多个服务器上，有多个节点，可以保证更安全，但仍然无法保证数据永不丢失。
+而我们的DAPP就不一样了，之前，特别是第一天开始学习区块链 的时候，我还疑惑，这些产生 的数据到底存储在哪儿呢，后来明白了，所以的事务（交易）数据都是存放在不断产生的区块中的，每一个区块会被同步更新到所有的区块链网络的所有节点上，现在我进一步明白了，DAPP应用程序根本无需考虑数据的存储问题——因为DAPP的数据是直接存储到区块链网络上的，区块链网络本身就实现了数据存储的解决方案，这让我非常兴奋，这是多么伟大的一个创举！一旦DAPP产生的数据存储到区块链网络本身，则除非世界毁灭，互联网消失，否则这些数据将永存千秋。
+因此，DAPP的数据存储底层就是区块链的无数区块本身，然后再其之上是智能合约，最上层面向用户的是前端的与用户互动的界面。
+
+【我不想在本地架构复杂的ETH测试节点】
+通过搜索比较，发现主流的看法是通过Truffle架构来进行DAPP开发环境的架设，当然学习Python那么久了，其实早已习惯了繁杂地进行环境配置（个人感觉这是Python最让我恼火的地方），但这次却怎么也不想再去配置这个环境了，至少目前初学阶段我是不想配置的，原因是：
+1.经过前段时间的学习，已经发现了完整的在线编译系统 remix，发现完全足以应付，且可以直接联网测试（测试时当然选择eth的测试网络），那么我就认为没有必要再折腾了。
+2.发现了Python建构一个网站是非常方便且健壮的（前面学习flask时已了解到）但问题的，我没有可用的已租用的服务器，如果要部署一个python的网站程序，则必然需要完全在自己租用的服务器上完成Python环境的配置，这对我来说不够经济，因为我只有一个云虚拟主机，且没有权限进行服务器环境的任何配置。
+3.而如果只是使用js这样的解释脚本，因为html页面天身就是Js的好搭档，因此直接使用Js来完成与智能合约的交互，对于完成一个html页面类型的DAPP来说就非常省事，节约资源了。
+
+当然当我这样构想的时候，突然发现，这似乎不算是在进行python学习了，变成了JS的学习，不过，以区块链学习为中心来看，这也无可厚非，反正道理是相通的嘛。
+
+【web3.js】
+之前我已经为python环境成功添加部署了web3.py环境，这是用于Python开发的。
+用于js开发的，当然使用web3.js
+官方地址：
+https://github.com/ethereum/web3.js/
+https://github.com/ethereum/web3.js/releases?after=v1.0.0-beta.40
+不过当我将web3.js的多个部署包下载下来后发现，这东西也html中使用的js是有区别的，是专门用于Js直接编程而使用的，而不是作为html的辅助前端交互而使用的，它需要node.js等的支持。这意味着，一方面我还不能直接将下载的web3.js包直接用于Html的加载使用，另一方面还是得建构一整套编程配置环境。
+好在后来终于发现了一线生机——web3.min.js这个精减版的js文件可以直接在html文件中，通过：
+<script language="javascript" type="text/javascript" src="web3.min.js"></script>
+方法将其引用，进而在html文件的脚本语言中进行调用。
+
+【寻找web3.min.js】
+不管怎么寻找都没有从网络上找到可用的web3.min.js文件可供下载，后来才发现，原来在一些版本（不是所有版本）web3.js包中有一个名为【dist】的文件夹。
+其中就有一个web3.min.js的文件。
+
+然后找到了一个范例博文：
+https://www.ucloud.cn/yun/24154.html
+复制其源代码并进行了一些修改
+```
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CryptoZombies front-end</title>
+    <script language="javascript" type="text/javascript" src="jquery.min.js"></script>
+    <script language="javascript" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/web3.min.js"></script>
+    <!-- 1. Include cryptozombies_abi.js here -->
+    <script language="javascript" type="text/javascript" src="cryptozombies_abi.js"></script>
+</head>
+<body>
+
+    <script>
+        // 2. Start code here
+        var cryptoZombies;
+        var web3js;
+
+        function startApp() {
+            try {
+                var cryptoZombiesAddress = "0xf89074dcdd8798b7e20b8cd88a9a38f27479411c";
+                cryptoZombies = web3js.eth.contract(cryptozombiesABI, cryptoZombiesAddress); //如果是另一个版本可能还得加上new关键字。
+
+
+            } catch (err) {
+                alert(err);
+            }
+            alert("started");
+            
+        }
+
+        window.addEventListener('load', function () {
+
+            // Checking if Web3 has been injected by the browser (Mist/MetaMask)
+            if (typeof web3 !== 'undefined') {
+                // Use Mist/MetaMask's provider自动使用网页钱包的节点，不用自己指定节点。
+                web3js = new Web3(web3.currentProvider);
+                alert(web3js.version);
+            } else {
+                // Handle the case where the user doesn't have Metamask installed
+                // Probably show them a message prompting them to install Metamask
+                alert("no metamask");
+            }
+
+            // Now you can start your app & access web3 freely:
+            startApp();
+
+        })
+    </script>
+</body>
+</html>
+
+
+
+```
+在本地无论怎么样使用浏览器打开这个html文档都报错，就算是使用了安装有metamask钱包插件的谷歌浏览器来打开也还是提示错误，几乎就要放弃了，然而就在要放弃的当口，突然想到，也许metamask插件设计的本身只能来自远端的服务器调用有效？
+于是将这个html文档连同需要的两个Js文件同步上传到自己的服务器上进行测试，果然没有再报错了，但也不敢保证是成功的。留着明天继续研究，也恳请高手给予指点。
+
+
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1550  
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/329416462 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1sz4y1X7on/ 
+
