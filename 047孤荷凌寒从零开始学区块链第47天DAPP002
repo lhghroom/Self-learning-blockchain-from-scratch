@@ -1,0 +1,559 @@
+孤荷凌寒自学第133天
+区块链第47天，Dapp002
+【主要内容】
+今天继续学习实战，做一个真正的依托于智能合约的DAPP。今天继续学习直接使用Js代码与metaMask钱包来互动完成合约的访问。共耗时58分钟。
+（此外整理作笔记花费了约82分钟）
+详细学习过程见文末学习过程屏幕录像。
+参照学习的博文是：
+https://www.ucloud.cn/yun/24154.html
+
+【ABI的JS文件】
+首先也完成了一个abi接口的JS文件。
+cryptozombies_abi.js
+内容如下：
+```
+//cryptozombiesABI 变量存储的是一个列表，连接合约API接口的
+var cryptozombiesABI =[
+    {
+        "constant": false,
+        "inputs": [],
+        "name": "acceptOwnership",
+        "outputs": [],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "constant": false,
+        "inputs": [
+            {
+                "name": "_addr",
+                "type": "address"
+            }
+        ],
+        "name": "addLock",
+        "outputs": [
+            {
+                "name": "success",
+                "type": "bool"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "constant": false,
+        "inputs": [
+            {
+                "name": "_spender",
+                "type": "address"
+            },
+            {
+                "name": "_value",
+                "type": "uint256"
+            }
+        ],
+        "name": "approve",
+        "outputs": [
+            {
+                "name": "success",
+                "type": "bool"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "constant": false,
+        "inputs": [
+            {
+                "name": "_newOwner",
+                "type": "address"
+            }
+        ],
+        "name": "changeOwner",
+        "outputs": [],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "constant": false,
+        "inputs": [
+            {
+                "name": "_enable",
+                "type": "bool"
+            }
+        ],
+        "name": "disableLock",
+        "outputs": [
+            {
+                "name": "success",
+                "type": "bool"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "constant": false,
+        "inputs": [
+            {
+                "name": "_enable",
+                "type": "bool"
+            }
+        ],
+        "name": "enableTransfer",
+        "outputs": [
+            {
+                "name": "success",
+                "type": "bool"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "constant": false,
+        "inputs": [
+            {
+                "name": "_addr",
+                "type": "address"
+            }
+        ],
+        "name": "removeLock",
+        "outputs": [
+            {
+                "name": "success",
+                "type": "bool"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "constant": false,
+        "inputs": [
+            {
+                "name": "_addr",
+                "type": "address"
+            },
+            {
+                "name": "_enable",
+                "type": "bool"
+            }
+        ],
+        "name": "setExclude",
+        "outputs": [
+            {
+                "name": "success",
+                "type": "bool"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "constant": false,
+        "inputs": [
+            {
+                "name": "_to",
+                "type": "address"
+            },
+            {
+                "name": "_value",
+                "type": "uint256"
+            }
+        ],
+        "name": "transfer",
+        "outputs": [
+            {
+                "name": "success",
+                "type": "bool"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "constant": false,
+        "inputs": [
+            {
+                "name": "_from",
+                "type": "address"
+            },
+            {
+                "name": "_to",
+                "type": "address"
+            },
+            {
+                "name": "_value",
+                "type": "uint256"
+            }
+        ],
+        "name": "transferFrom",
+        "outputs": [
+            {
+                "name": "success",
+                "type": "bool"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "constructor"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": false,
+                "name": "_prevOwner",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "name": "_newOwner",
+                "type": "address"
+            }
+        ],
+        "name": "OwnerUpdate",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "name": "_from",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "name": "_to",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "name": "_value",
+                "type": "uint256"
+            }
+        ],
+        "name": "Transfer",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "name": "_owner",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "name": "_spender",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "name": "_value",
+                "type": "uint256"
+            }
+        ],
+        "name": "Approval",
+        "type": "event"
+    },
+    {
+        "constant": true,
+        "inputs": [
+            {
+                "name": "_owner",
+                "type": "address"
+            },
+            {
+                "name": "_spender",
+                "type": "address"
+            }
+        ],
+        "name": "allowance",
+        "outputs": [
+            {
+                "name": "remaining",
+                "type": "uint256"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [
+            {
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "name": "balanceOf",
+        "outputs": [
+            {
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [],
+        "name": "decimals",
+        "outputs": [
+            {
+                "name": "",
+                "type": "uint8"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [],
+        "name": "name",
+        "outputs": [
+            {
+                "name": "",
+                "type": "string"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [],
+        "name": "owner",
+        "outputs": [
+            {
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [],
+        "name": "symbol",
+        "outputs": [
+            {
+                "name": "",
+                "type": "string"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [],
+        "name": "totalSupply",
+        "outputs": [
+            {
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [],
+        "name": "transferEnabled",
+        "outputs": [
+            {
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    }
+]
+
+
+```
+
+【Html文件内容】
+```
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CryptoZombies front-end</title>
+    <script language="javascript" type="text/javascript" src="jquery.min.js"></script>
+    <script language="javascript" type="text/javascript" src="web3.min.js"></script>
+    <!-- 1. Include cryptozombies_abi.js here -->
+    <script language="javascript" type="text/javascript" src="cryptozombies_abi.js"></script>
+
+    <script>
+            //声明一些钱包地址：
+            //下面一行定义的是部署合约的节点（创世节点）的信息，公钥
+            var wallet_address="0x5227C3EF48B5A1bcF784593e46D9579D26a3b592"; //狐狸钱包的公钥，就是钱包地址，是eth网络上的一个节点。
+            //下面一行定义的是节点2的信息
+            var w2add="0xe2d6c2f289c53B5aEA44C47293Ba179a3bfa21f0"; //公钥
+    
+            //下面一行定义的是节点3 的信息
+            var w3add="0xb40599fB0366DCf0ffe86677b005b3f20Dfa29aE"; //公钥
+    
+            //下面一行定义的是节点4 的信息
+            var w4add="0x70c8461366d5368B1E79CBFc2Acf4ba56C745977"; //公钥
+    
+    
+    
+    
+            // 2. Start code here
+            var cc;
+            var web3js;
+    
+            function startApp() {
+                try {
+                    var cryptoZombiesAddress = "0xf89074dcdd8798b7e20b8cd88a9a38f27479411c"; //要连接的合约地址
+                    cc = web3js.eth.contract(cryptozombiesABI, cryptoZombiesAddress); //如果是另一个版本可能还得加上new关键字。
+    
+    
+                } catch (err) {
+                    alert(err);
+                }
+                alert("加载成功");
+                
+            }
+    
+            window.addEventListener('load', function () {
+    
+                // Checking if Web3 has been injected by the browser (Mist/MetaMask)
+                if (typeof web3 !== 'undefined') {
+                    // Use Mist/MetaMask's provider自动使用网页钱包的节点，不用自己指定节点。
+                    web3js = new Web3(web3.currentProvider);
+                    alert(web3js.version.api);
+                } else {
+                    // Handle the case where the user doesn't have Metamask installed
+                    // Probably show them a message prompting them to install Metamask
+                    alert("请安装Metamask钱包");
+                }
+    
+                // Now you can start your app & access web3 freely:
+                startApp();
+    
+            })
+    
+            //----------------下面是自定义的与合约交互的函数-------------------------
+            //--查询一个节点授权另一个节点可以运用的代币的授权余额数
+            function getAllowance(owneradd,spenderadd){
+                try{
+                    //cc.methods.allowance(owneradd,spenderadd).call({from: currentAccount}, function(error, result){
+                    //    if(!error) {
+                    //        alert(result);
+                    //    } else {
+                    //        alert(error);
+                    //    }
+                    //});
+                    //return "ok";
+                    return cc.methods.allowance(owneradd,spenderadd).call();
+
+
+                }catch(err){
+                    return '在尝试调用合约的查询授权节点可用余额时出错 ：' + err;
+                }
+            }
+    
+    
+    
+            //--------------------------调用测试---------------------------------------
+            //--查询节点一向节点二授权的代币余额
+            function cmdone_click(){
+                try{
+                    r=getAllowance(wallet_address,w2add);
+                    alert(r);
+                    //getAllowance(wallet_address,w2add)
+                    //.then(function(result) {
+                    //    alert("allowbanlanced is: " + JSON.stringify(result));
+                    //});//这儿不管使用then，还是done都报错。
+                }catch(err){
+                    alert(err)
+                }
+            }
+    
+    
+        </script>
+        
+</head>
+<body>
+    <div>
+        <input type="button" value="查询授权全额" id="cmdone" name="cmdone" onclick="cmdone_click();" />
+
+    </div>
+    
+</body>
+</html>
+```
+
+【卡住的问题】
+今天前面部分非常顺利，但截止当前仍然没有确定是否用js代码顺利连接上了合约，因为在执行：
+```
+return cc.methods.allowance(owneradd,spenderadd).call();
+```
+语句时，卡住，直接提示：
+TypeError: Cannot read property 'allowance' of undefined
+经多方搜索，未来找到有效答案，于是我怀疑，此处也许合约并没有连接并调用成功。
+也恳请高手给予指导，万分感激。
+
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1550  
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/331371222
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1Xa4y1Y7Vd/
+
