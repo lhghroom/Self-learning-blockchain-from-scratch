@@ -1,0 +1,289 @@
+孤荷凌寒自学第136天
+区块链050Dapp005
+【主要内容】
+今天继续学习实战，做一个真正的依托于智能合约的DAPP。今天继续学习直接使用Js代码与metaMask钱包来互动完成合约的访问。共耗时34分钟。
+（此外整理作笔记花费了约58分钟）
+详细学习过程见文末学习过程屏幕录像。
+继续参照学习的博文是：
+https://www.ucloud.cn/yun/24154.html
+提供有效帮助的博文是：
+https://docs.token.im/dapp-sdk/
+
+【今天继续完成的Html文件】
+
+```
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CryptoZombies front-end</title>
+    <script language="javascript" type="text/javascript" src="jquery.min.js"></script>
+    <script language="javascript" type="text/javascript" src="web3.min.js"></script>
+    <!-- 1. Include cryptozombies_abi.js here -->
+    <script language="javascript" type="text/javascript" src="cryptozombies_abi.js"></script>
+
+    <script>
+            //声明一些钱包地址：
+            //下面一行定义的是部署合约的节点（创世节点）的信息，公钥
+            var wallet_address="0x5227C3EF48B5A1bcF784593e46D9579D26a3b592"; //狐狸钱包的公钥，就是钱包地址，是eth网络上的一个节点。
+            //下面一行定义的是节点2的信息
+            var w2add="0xe2d6c2f289c53B5aEA44C47293Ba179a3bfa21f0"; //公钥
+    
+            //下面一行定义的是节点3 的信息
+            var w3add="0xb40599fB0366DCf0ffe86677b005b3f20Dfa29aE"; //公钥
+    
+            //下面一行定义的是节点4 的信息
+            var w4add="0x70c8461366d5368B1E79CBFc2Acf4ba56C745977"; //公钥
+    
+    
+   
+            // 2. Start code here
+            var cc;
+            var web3;
+    
+            function startApp() {
+                try {
+                    var cryptoZombiesAddress = "0xf89074dcdd8798b7e20b8cd88a9a38f27479411c"; //要连接的合约地址
+                    var ccc=web3.eth.contract(cryptozombiesABI);
+                    cc=ccc.at("0xf89074dcdd8798b7e20b8cd88a9a38f27479411c"); //https://www.cnblogs.com/tinyxiong/p/9046626.html
+                    //cc =new web3.eth.contract(cryptozombiesABI, cryptoZombiesAddress); //如果是另一个版本可能还得加上new关键字。
+                    alert(typeof cc);
+    
+                } catch (err) {
+                    alert(err);
+                }
+                alert("加载成功");
+                
+            }
+    
+            //async () => 
+
+        window.addEventListener('load',function() {
+        try{
+            //if (window.ethereum.isImToken==true) {
+            //if (window.ethereum) {
+            //if (!!window.web3) {    
+            //    alert("e")
+            //    window.web3 = new Web3(ethereum);
+            //    try {
+            //        window.ethereum.enable().then(accounts => {
+            //            window.accounts = accounts;
+            //            alert(window.accounts)
+            //        })
+                    // Request account access if needed
+                    //await ethereum.enable();
+                    // Acccounts now exposed
+                    //web3.eth.sendTransaction({/* ... */});
+
+                        //window.ethereum.isImToke
+                        //if (web3.currentProvider.isImToke == true) {
+                        //    web3.eth.getAccounts(function (err, accounts) {
+                        //        if (accounts.length == 0) {
+                                    //$("#account").html("请检查钱包是否解锁");
+                        //            alert("连接不上钱包");
+                        //        } else {
+                                    //$("#account").html("");
+                        //            startApp();
+                        //        }
+                        //        alert(web3.eth.defaultAccount);
+                        //    });
+                        //}else{
+                        //    alert("这儿没有钱包环境。")
+                        //}
+                    
+                //} catch (error) {
+                        // User denied account access...
+                //    alert(error);
+                //}
+            //}
+            // Legacy dapp browsers... if (window.web3) 
+            //else{
+                alert("no e");
+                if (typeof web3 !== 'undefined') {
+                    web3 = new Web3(web3.currentProvider);
+                    if (web3.currentProvider.isMetaMask == true) {
+                        //$("#env").html("MetaMask可用");
+                        web3.eth.getAccounts(function (err, accounts) {
+                            if (accounts.length == 0) {
+                                $("#account").html("请检查钱包是否解锁");
+                            } else {
+                                $("#account").html("");
+                                startApp();
+                            }
+                            console.log(web3.eth.defaultAccount);
+                            alert(web3.eth.defaultAccount);
+                        });
+                        
+                    } else {
+                        alert("这儿没有钱包环境。")
+                    }
+                } else {
+                    //$("#env").html("No web3? 需要安装<a href='https://metamask.io/'>MetaMask</a>!");
+                    alert("没有钱包环境。")
+                }
+            //}
+
+        }catch(err){
+            alert(err);
+        }
+        });
+
+    
+            //----------------下面是自定义的与合约交互的函数-------------------------
+            //--查询一个节点授权另一个节点可以运用的代币的授权余额数
+            function getAllowance(owneradd,spenderadd){
+                try{
+                    //cc.methods.allowance(owneradd,spenderadd).call({from: currentAccount}, function(error, result){
+                    //    if(!error) {
+                    //        alert(result);
+                    //    } else {
+                    //        alert(error);
+                    //    }
+                    //});
+                    //return "ok";
+                    //return cc.methods.allowance(owneradd,spenderadd).call();
+                    //return cc.methods.balanceOf(owneradd).call();
+                    //return cc.allowance(owneradd,spenderadd).call();
+                    //cc.allowance(owneradd,spenderadd).call({from:web3.eth.defaultAccount},function(error, result){
+                    //上一种写法是错误的，下一行的写法才是对的，而且是异步等待接收结果 ----
+                    cc.allowance(owneradd,spenderadd,function(error, result){  //https://www.jianshu.com/p/15ff9da4dd8d
+                    if(!error)
+                    {
+                        //$("#info").html(result[0]+' ('+result[1]+' years old)');
+                       alert(result);
+                    }
+                    else{
+                        alert(error);
+                    }});
+                    return "ok"
+                }catch(err){
+                    return '在尝试调用合约的查询授权节点可用余额时出错 ：' + err;
+                }
+            }
+    
+            //调用合约者发送代币---事实证明，调用需要付gas的合约函数（即不是由pure,constant,view等修饰符修饰的合约函数）与调用静态函数一样，metamask钱包可以自动解决签名与gas的问题。
+            function transfer(toadd,v){
+                try{
+                    cc.transfer(toadd,v,function(error, result){  //https://www.jianshu.com/p/15ff9da4dd8d
+                    if(!error)
+                    {
+                        //$("#info").html(result[0]+' ('+result[1]+' years old)');
+                       alert(result);
+                    }
+                    else{
+                        alert(error);
+                    }});
+                    return "ok"
+                }catch(err){
+                    alert('发送代币时出借：' + err);
+                    return err;
+                }
+            }
+
+            //接受授权的节点动用授权方的代币向第三方节点转款
+            function transerFrom(owneradd,toadd,tovalue){
+                try{
+                    cc.transferFrom(owneradd,toadd,tovalue,transerFromBack);
+                    return "ok";
+                }catch(err){
+                    alert("使用授权代币转移时出错 ：" + err)
+                    return err;
+                }
+            }
+
+            function transerFromBack(error, result){
+                if(!error)
+                    {
+                        //$("#info").html(result[0]+' ('+result[1]+' years old)');
+                       alert(result);
+                    }
+                    else{
+                        alert(error);
+                    }
+            }
+    
+            //--------------------------调用测试---------------------------------------
+            //--查询节点一向节点二授权的代币余额
+            function cmdone_click(){
+                try{
+                    r=getAllowance(wallet_address,w2add);
+                    alert(r);
+                    //getAllowance(wallet_address,w2add)
+                    //.then(function(result) {
+                    //    alert("allowbanlanced is: " + JSON.stringify(result));
+                    //});//这儿不管使用then，还是done都报错。
+                }catch(err){
+                    alert(err);
+                }
+            }
+    
+            //--节点一向节点二转移代币----
+            function cmdtwo_click(){
+                try{
+                    r=transfer(w2add,240);
+                    alert(r);
+                }catch(err){
+                    alert(err);
+                }
+            }
+
+            //--节点二动用节点一的代币转移给节点四
+            function cmdthree_click(){
+                try{
+                    r=transerFrom(wallet_address,w4add,30)
+                }catch(err){
+                    alert(err);
+                }
+            }
+
+    
+        </script>
+        
+</head>
+<body>
+    <div>
+        <input type="button" value="查询授权余额" id="cmdone" name="cmdone" onclick="cmdone_click();" />
+        <br /><br />
+        <input type="button" value="转账" id="cmdtwo" name="cmdtwo" onclick="cmdtwo_click();" />
+        <br /><br />
+        <input type="button" value="转移别人的钱" id="cmdthree" name="cmdthree" onclick="cmdthree_click();" />
+
+    </div>
+    
+</body>
+</html>
+```
+【今天尝试在imtoken的DAPP浏览器环境中进行测试失败】
+上面源代码中注释掉的为判断是否是imtoken的DAPP环境而进行的测试部分都是失败的（不是完全失败，具体见录屏视频过程。）
+多数情况下，Imtoken钱包中的dapp浏览器返回的都是“无法打开网页”，根本就不给调试的机会。
+在经历反复思考后，突然明白过来——
+原来imtoken的DAPP浏览器只支持访问
+https://
+头的网址，而我测试用的虚拟服务器是没有办法使用https安全协议的，于是imtoken的dapp浏览器会自动访问我的服务器域名的https:版本，当然这其实是不存在的，因此就会自然而然的报“无法打开网页”的错误了。
+
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1557  
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/333909334 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1qz411v78n/ 
+
