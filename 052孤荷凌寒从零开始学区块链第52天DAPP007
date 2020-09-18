@@ -1,0 +1,138 @@
+孤荷凌寒自学第138天
+区块链052天Dapp007
+【主要内容】
+今天继续学习实战，做一个真正的依托于智能合约的DAPP。今天开始独立完善一个众筹的合约。共耗时40分钟。
+（此外整理作笔记花费了约56分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+搜索到提供帮助的博文：
+https://www.jianshu.com/p/4b8e943ce7f2
+https://www.cnblogs.com/tinyxiong/p/8407233.html
+http://www.tryblockchain.org/Solidity-TimeUnits-%E6%97%B6%E9%97%B4%E5%8D%95%E4%BD%8D.html
+https://bbs.csdn.net/topics/392467158
+http://me.tryblockchain.org/solidity-mapping.html
+https://blog.csdn.net/black_bearb/article/details/81000513
+https://www.jianshu.com/p/d7f620d23c5b
+
+【尝试解决solidity时间戳转换为普通年月日表示的问题】
+经过反复搜索，查看学习别人的经验，发现solidity语言根本没有提供将一个时间戳对象（就是用无符号整数型数字来表示一个时间值）转换为其它通用人类能读懂的年月日的方式。
+首先其数据类型中，没有通用型的日期时间类型。
+其次，没有相关的转换方法及函数（当然自己写一个是可以的，不过怎样将值传递给外部调用者呢？）。
+最终也就意味着它只能返回一个无符号整数给外部调用者，要想得到具体的人类可读之的通用型年月日的类型和数据，只能依靠外部调用者的前端语言自己进行处理。
+这是我今天初步的感觉，当然没有深入去学习，待今后再作进一步研究，如果有高手知道此问题的解，还恳请不吝赐教，不胜感激。
+
+【solidity中的Mapping类型（映射类型）怎么统计元素数量】
+我想要获取参与众筹的总节点数，由于一个节点可以多次参与众筹（这个节点可以多次打款给合约地址），因此我发现要统计参与众筹活动的总节点数，只能从记录节点地址与此节点赠予代币总数的映射变量去入手统计，但目前为止，我不知道这个mapping类型的数据，可不可以使用.length属性来获取其中元素对的总数。
+到今天为止，因为没有部署合约并测试，所以也没有解决此问题。
+如果有高手知道此问题的解，还恳请不吝赐教，不胜感激。
+
+【今天将之前学习过的一个众筹合约的代码修改完成后的结果如下】
+
+```
+pragma solidity ^0.4.7;
+
+contract ZongChouCeshi{
+    address owner; //此变量记录下合约部署者（拥有者）的地址
+    uint public goal; //要众筹的目标金额（当然这儿指的是eth）
+    uint public endtime; //是指此众筹的时长(是一个无符号整数，单位是秒），如果在从部署合约之日加上此天数后的日期期限内达到目的金额，则说明众筹目标达到，合约部署者可以取走所有众筹金额，否则就由参与众筹者自己退回自己那份钱。
+    uint public total=0; //这是实际众筹到的金额
+    uint public giftcount=0; //记录下有多少节点参与了，不知道怎么检查去重。对映射类型的变量了解不够
+    
+    mapping(address=>uint) gift; //每个参与众筹的节点地址实际捐赠的金额，即地址对应的金额
+    
+    //下面是合约的建构函数（只在部署时执行一次）
+    //部署合约时，手动指定众筹的目标金额与众筹的时长（总数)
+    constructor(uint _goal, uint _time) public{
+        owner = msg.sender;
+        goal = _goal;
+        endtime = now + _time;
+        //变量 now 将返回当前的unix时间戳（自1970年1月1日以来经过的秒数）。
+        //来自博文：https://www.jianshu.com/p/4b8e943ce7f2
+    }
+    
+    //调用合约的用户节点参与众筹，向合约地址转账一定数量的eth
+    //这个函数给我的疑惑是，没有体现（像自己发的代币合约中的那样）登记eth余额双方的变化
+    //初步理解是：
+    //因为使用的代币正是eth本身，因此当调用此合约的节点在进行转移eth操作时，eth网络本身已经记录并广播完成了eth代币余额在两个节点之间的移动
+    function donate() public  payable{
+        require(now < endtime);
+        require(total < goal);
+        require(msg.value > 0.3); //每个节点至少捐赠众筹0.3个eth
+        gift[msg.sender] += msg.value; //在gift表中记录下当前节点增加了一定的捐赠金额（这意味着一个节点可以多次调用合约进行捐赠）
+        total += msg.value; //让目前的实际众筹余额增加
+    }
+    
+    //如果众筹成功，即在规定的时间内，众筹了大于等于goal预设数量金额的eth，那么证明成功，则合约的部署节点可以取走这笔eth到合约部署节点的账户上。
+    function draw() public payable{
+        require(msg.sender == owner); //首先要保证本次调用合约及调用本函数的节点是合约部署者。
+        require(total > goal); //确实判断众筹目标已经达成。
+        owner.transfer(address(this).balance); //执行转账，从合约地址转到部署合约的节点地址
+        //eth代币的转账书写方法是非常简洁的:
+        //接收转账金额的节点.transfer(转账金额)
+        //这样指定【转账金额】的eth就会转移给【接收转账金额的节点】
+    }
+    
+    //如果众筹失败，则参与众筹的节点可以调用合约的本方法来取回自己的捐赠
+    function withdraw() public payable{
+        require(now > endtime); //只有当众筹时间已过，本函数才可被调用
+        require(total < goal); //确定判断众筹已经失败。
+        uint amount = gift[msg.sender]; //获取当前调用合约的节点之前总共捐赠的eth的总金额
+        total -= amount; //从总金额中减少当前调用合约节点准备取回的eth金额
+        gift[msg.sender] = 0; //在gift表中，登记当前调用合约节点新的捐赠金额为0
+        address(msg.sender).transfer(amount); //当前调用合约的节点之前总共捐赠的eth的总金额转移回当前调用合约的节点
+    }
+
+    //查询当前已筹集资金总额：
+    function getTotal() public constant returns(uint){
+        return total;
+    }
+
+    //查询当前合约节点自己的余额（这实际上就是total的数量，不过额外增加一个函数来查询）
+    function getContractBalance() public constant returns(uint){
+        return address(this).balance;
+    }
+
+    //查询截止日期,返回的是结束 日期那天的时间戳的一个无符号整数（32位的），需要调用此合约函数的调用方自己用前端 语言来进行处理
+    function getEndTimeStamp() public constant returns(uint){
+        return endtime;
+    }
+
+    //查询当前调用合约的节点已经总共捐助了多少eth
+    function getGiftBalance() public constant returns(uint){
+        return gift[msg.sender];
+    }
+
+    //查询已经有多少人捐助
+    function getGiftCount() public constant returns(uint){
+        return gift.length; //不确定是否真的获取到值
+    }
+
+}
+
+```
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1573
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/334280426 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1BV41167Zf/ 
+
