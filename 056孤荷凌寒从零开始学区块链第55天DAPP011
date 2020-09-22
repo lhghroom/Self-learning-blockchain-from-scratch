@@ -1,0 +1,332 @@
+孤荷凌寒自学第142天
+区块链056天Dapp11
+
+【主要内容】
+今天继续学习实战，做一个真正的依托于智能合约的DAPP。今天继续独立完善一个众筹的合约。共耗时36分钟。
+（此外整理作笔记花费了约74分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+
+【首先尝试通过js来调用合约参与众筹】
+js代码如下：
+```
+            //参与众筹---
+            function dodate(intvalue){
+                try{
+                    cc.donate(function(error, result){
+                    if(!error)
+                    {
+
+                        //$("#endtime").html("本次众筹截止时间：" + result);
+                       //alert(result);
+                       alert("参与成功");
+                    }else{
+                        alert(error);
+                        //$("#endtime").html('获取出错：' + error);
+                    }});
+                    return "ok"
+                    //$("#endtime").html('正在获取。。。');
+                }catch(err){
+                    alert("参与众筹出错 ：" + err)
+                    return err;
+                }
+            }
+
+
+```
+然而直接发生错误，是位于代码块：
+```
+                }catch(err){
+                    alert("参与众筹出错 ：" + err)
+                    return err;
+                }
+
+```
+处报告的错误——
+Error: invalid address
+因为无法定位错在哪儿，因此一头雾水。
+
+【尝试在remixIDE中直接加载合约地址，然后互动】
+结果不知道今天是因为什么原因，remix在线编辑环境始终无法加载指定的合约地址，前例折腾了十分钟，没有解决（详见屏幕录像我挣扎的过程）
+
+【今天完成的准备与智能合约交互的Html页面】
+```
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>我要众筹</title>
+    <script language="javascript" type="text/javascript" src="jquery.min.js"></script>
+    <script language="javascript" type="text/javascript" src="web3.min.js"></script>
+    <!-- 1. Include cryptozombies_abi.js here -->
+    <script language="javascript" type="text/javascript" src="zongchou_abi.js"></script>
+
+    <script>
+            //声明一些钱包地址：
+            //下面一行定义的是部署合约的节点（创世节点）的信息，公钥
+            var wallet_address="0x5227C3EF48B5A1bcF784593e46D9579D26a3b592"; //狐狸钱包的公钥，就是钱包地址，是eth网络上的一个节点。
+            //下面一行定义的是节点2的信息
+            var w2add="0xe2d6c2f289c53B5aEA44C47293Ba179a3bfa21f0"; //公钥
+    
+            //下面一行定义的是节点3 的信息
+            var w3add="0xb40599fB0366DCf0ffe86677b005b3f20Dfa29aE"; //公钥
+    
+            //下面一行定义的是节点4 的信息
+            var w4add="0x70c8461366d5368B1E79CBFc2Acf4ba56C745977"; //公钥
+    
+    
+   
+            // 2. Start code here
+            var cc;
+            var web3;
+    
+            function startApp() {
+                try {
+                    var cryptoZombiesAddress = "0x5227c3ef48b5a1bcf784593e46d9579d26a3b592"; //要连接的合约地址
+                    var ccc=web3.eth.contract(zongchouABI);
+                    cc=ccc.at("0x5227c3ef48b5a1bcf784593e46d9579d26a3b592"); //https://www.cnblogs.com/tinyxiong/p/9046626.html
+                    //cc =new web3.eth.contract(cryptozombiesABI, cryptoZombiesAddress); //如果是另一个版本可能还得加上new关键字。
+                    alert(typeof cc);
+    
+                } catch (err) {
+                    alert(err);
+                }
+                alert("加载成功");
+                
+            }
+    
+            //async () => 
+
+        //现在这种通过we3.min.js来加载钱包连接的方法，在metamask钱包和麦子钱包中都测试通过。
+        window.addEventListener('load',function() {
+        try{
+            if (typeof web3 !== 'undefined') {
+                web3 = new Web3(web3.currentProvider);
+                startApp();
+            } else {
+                //$('#app_loading').hide();
+                //alert(jQuery.i18n.prop('lrn_error_alert'));
+                //mathWallet.closePage();
+                alert("这儿没有钱包环境。");
+            }
+
+        }catch(err){
+            alert(err);
+        }
+        });
+
+    
+            //----------------下面是自定义的与合约交互的函数-------------------------
+            //--查询总金额---
+            function gettotal(){
+                try{
+                    cc.getTotal(function(error, result){  //https://www.jianshu.com/p/15ff9da4dd8d
+                    if(!error)
+                    {
+                        $("#total").html("已获得众筹总金额：" + result);
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#total").html('获取出错：' + error);
+                    }});
+                    //return "ok"
+                    $("#total").html('正在获取。。。');
+                }catch(err){
+                    $("#total").html('出错 ：' + err);
+                }
+            }
+
+            //--查询总金额---
+            function gettotal2(){
+                try{
+                    cc.getContractBalance(function(error, result){  //https://www.jianshu.com/p/15ff9da4dd8d
+                    if(!error)
+                    {
+                        $("#total2").html("合约地址代币余额：" + result);
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#total2").html('获取出错：' + error);
+                    }});
+                    //return "ok"
+                    $("#total2").html('正在获取。。。');
+                }catch(err){
+                    $("#total2").html('出错 ：' + err);
+                }
+            }
+    
+
+            //查询本次授权的结束日期和时间
+            function getEndTimeStamp(){
+                try{
+                    cc.getEndTimeStamp(function(error, result){  //https://www.jianshu.com/p/15ff9da4dd8d
+                        if(!error)
+                    {
+
+                        $("#endtime").html("本次众筹截止时间：" + result);
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#endtime").html('获取出错：' + error);
+                    }});
+                    //return "ok"
+                    $("#endtime").html('正在获取。。。');
+                }catch(err){
+                    alert("使用授权代币转移时出错 ：" + err)
+                    return err;
+                }
+            }
+
+            //参与众筹---
+            function dodate(intvalue){
+                try{
+                    cc.donate(function(error, result){
+                    if(!error)
+                    {
+
+                        //$("#endtime").html("本次众筹截止时间：" + result);
+                       //alert(result);
+                       alert("参与成功");
+                    }else{
+                        alert(error);
+                        //$("#endtime").html('获取出错：' + error);
+                    }});
+                    return "ok"
+                    //$("#endtime").html('正在获取。。。');
+                }catch(err){
+                    alert("参与众筹出错 ：" + err)
+                    return err;
+                }
+            }
+
+
+
+            //--------------------------调用测试---------------------------------------
+            //--查询total
+            function cmdone_click(){
+                try{
+                    gettotal();
+                }catch(err){
+                    alert(err);
+                }
+            }
+
+            //--查询total2
+            function cmdone2_click(){
+                try{
+                    gettotal2();
+                }catch(err){
+                    alert(err);
+                }
+            }
+    
+            //--查询本次众筹的结束日期和时间----
+            function cmdtwo_click(){
+                try{
+                    getEndTimeStamp();
+                }catch(err){
+                    alert(err);
+                }
+            }
+
+            //--参与众筹-------------
+            function cmddo_click(){
+                try{
+                    var strls=document.getElementById("txtvalue").value;
+                    if(/^[0-9]+\.?[0-9]+?$/.test(strls)){
+                        var fls=parseFloat(strls);
+                        var intls=fls * (10**18);
+                        dodate(intls);
+                    }else{
+                        alert('只能输入数字');
+                    }
+                }catch(err){
+                    alert(err);
+                }
+            }
+
+
+
+    
+        </script>
+        
+</head>
+<body>
+    <div>
+        <input type="button" value="查询当前众筹总金额" id="cmdone" name="cmdone" onclick="cmdone_click();" />
+        <span id="total" name="total"></span>
+        <br /><br />
+        <input type="button" value="查询当前众筹总金额" id="cmdone2" name="cmdone2" onclick="cmdone2_click();" />
+        <span id="total2" name="total2"></span>
+        <br /><br />
+        <input type="button" value="查询此众筹的截止日期和时间" id="cmdtwo" name="cmdtwo" onclick="cmdtwo_click();" />
+        <span id="endtime" name="endtime"></span>
+        <br /><br />
+        <input type="button" value="我要入筹" id="cmddo" name="cmddo" onclick="cmddo_click();" />
+        <input type="text" value="0.3" id="txtvalue" name="txtvalue" />eth
+        <br /><br />
+
+
+    </div>
+    
+</body>
+</html>
+
+```
+现在我开始怀疑的自己编写 的这个智能合约肯定有未知错误，于是又开始搜索，历经数十分钟，终于发现了别人更优秀的ICO合约：
+https://blog.csdn.net/qq_34493908/article/details/81879709
+https://blog.csdn.net/itcastcpp/article/details/83897084
+https://blog.csdn.net/xilibi2003/article/details/79409917
+https://blog.csdn.net/boss2967/article/details/83614391
+
+
+【补充笔记】
+当我已经历经艰辛完成今天的笔记时，心情已经非常低落了，这时候，发现remix在线编辑器，终于加载完成了（原来之前的没有反应是其页面所需要的js文件一直没加载起，这可悲的网络），这里在把指定合约地址的合约函数显示了出来，于是决定再试一下。
+结果所有函数执行时全部像商量好了似的，提示——
+```
+error: Failed to decode output: TypeError: Cannot read property 'length' of undefined
+```
+见今天 视频最后的补充视频，我操作过程也录了屏的。
+我很仔细的查找了一下合约代码，没有发现任何地方有所谓的“length”这个属性被使用，这下真是更迷糊了。
+于是搜索——
+
+【居然部署合约时如果gas不够，还可以给你弄出个假的合约来】
+我搜索到了答案：
+https://blog.csdn.net/weixin_33951761/article/details/91902290
+摘录其内容如下：
+“
+在用remix部署合约，调用合约方法时，有时候出现error: Failed to decode output: TypeError: Cannot read property 'length' of undefined 。这是因为部署合约时gasLimit太低了，导致合约还没有部署成功。调用的合约一直都是假的合约。只要把gasLimit调高，重新部署下就行了。
+”
+这下子真是让人大开眼界——还有虽然成功部署，然而却是假的合约的东西的存在 ——瞬间觉得整个人都不好了，很想爆粗口的感觉！！
+当然今天 的学习时间 有限，只好放弃重新部署的冲动。
+事实有时总是比狗血剧情还要来得生动得多。
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1586  
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+
+ 
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/335493424 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1pz4y1D7Xd/
+
+
