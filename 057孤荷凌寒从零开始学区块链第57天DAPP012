@@ -1,0 +1,185 @@
+孤荷凌寒自学第143天
+区块链057天Dapp012
+【主要内容】
+今天继续学习实战，做一个真正的依托于智能合约的DAPP。今天继续独立完善一个众筹的合约。共耗时33分钟。
+（此外整理作笔记花费了约58分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+
+【首先准备重新部署合约】
+部署之前的合约内容如下：
+```
+pragma solidity ^0.4.7;
+
+contract ZongChouCeshi{
+    address owner; //此变量记录下合约部署者（拥有者）的地址
+    uint public goal; //要众筹的目标金额（当然这儿指的是eth）
+    uint public endtime; //是指此众筹的时长(是一个无符号整数，单位是秒），如果在从部署合约之日加上此天数后的日期期限内达到目的金额，则说明众筹目标达到，合约部署者可以取走所有众筹金额，否则就由参与众筹者自己退回自己那份钱。
+    uint public total=0; //这是实际众筹到的金额
+    uint public giftcount=0; //记录下有多少节点参与了，不知道怎么检查去重。对映射类型的变量了解不够
+    
+    address[] public alladd=new address[](1); //这儿必须写上(1)，不然报错如下：
+    //Type function (uint256) returns (address[] memory) is not implicitly convertible to expected type address[] storage ref.
+
+    mapping(address=>uint) gift; //每个参与众筹的节点地址实际捐赠的金额，即地址对应的金额
+    
+    //下面是合约的建构函数（只在部署时执行一次）
+    //部署合约时，手动指定众筹的目标金额与众筹的时长（总数)
+    function ZongChouCeshi() public{
+        owner = msg.sender;
+        goal = 50000000;
+        endtime = now + 100800;
+        //变量 now 将返回当前的unix时间戳（自1970年1月1日以来经过的秒数）。
+        //来自博文：https://www.jianshu.com/p/4b8e943ce7f2
+    }
+    
+    //调用合约的用户节点参与众筹，向合约地址转账一定数量的eth
+    //这个函数给我的疑惑是，没有体现（像自己发的代币合约中的那样）登记eth余额双方的变化
+    //初步理解是：
+    //因为使用的代币正是eth本身，因此当调用此合约的节点在进行转移eth操作时，eth网络本身已经记录并广播完成了eth代币余额在两个节点之间的移动
+    function donate() public payable{
+        if(now < endtime && total < goal && msg.value > (0.3*(10**18))){
+            //每个节点至少捐赠众筹0.3个eth
+            if(gift[msg.sender]==0){ //判断此节点是否之前已经捐过款项
+                giftcount+=1; //统计已经有多少节点参与捐助，而且要去重节点。
+                //alladd[alladd.length++] = msg.sender; //在地址数组中记录下当前地址,
+                alladd.push(msg.sender);
+            }
+            gift[msg.sender] += msg.value; //在gift表中记录下当前节点增加了一定的捐赠金额（这意味着一个节点可以多次调用合约进行捐赠）
+            total += msg.value; //让目前的实际众筹余额增加            
+        }
+
+    }
+    
+    //如果众筹成功，即在规定的时间内，众筹了大于等于goal预设数量金额的eth，那么证明成功，则合约的部署节点可以取走这笔eth到合约部署节点的账户上。
+    function draw() public{
+        //首先要保证本次调用合约及调用本函数的节点是合约部署者。
+        //确实判断众筹目标已经达成。
+        if(msg.sender == owner && total > goal){
+            bool isok=owner.send(address(this).balance); //执行转账，从合约地址转到部署合约的节点地址
+            //return isok;
+        }
+
+        //eth代币的转账书写方法是非常简洁的:
+        //接收转账金额的节点.transfer(转账金额)
+        //这样指定【转账金额】的eth就会转移给【接收转账金额的节点】
+    }
+    
+    //如果众筹失败，则参与众筹的节点可以调用合约的本方法来取回自己的捐赠
+    function withdraw() public{
+        //只有当众筹时间已过，本函数才可被调用
+        //确定判断众筹已经失败。
+        if(now > endtime && total < goal){
+            uint amount = gift[msg.sender]; //获取当前调用合约的节点之前总共捐赠的eth的总金额
+            total -= amount; //从总金额中减少当前调用合约节点准备取回的eth金额
+            gift[msg.sender] = 0; //在gift表中，登记当前调用合约节点新的捐赠金额为0
+            bool isok=address(msg.sender).send(amount); //当前调用合约的节点之前总共捐赠的eth的总金额转移回当前调用合约的节点            
+        }
+
+    }
+
+    //查询当前已筹集资金总额：
+    function getTotal() public constant returns(uint){
+        return total;
+    }
+
+    //查询当前合约节点自己的余额（这实际上就是total的数量，不过额外增加一个函数来查询）
+    function getContractBalance() public constant returns(uint){
+        return address(this).balance;
+    }
+
+    //查询截止日期,返回的是结束 日期那天的时间戳的一个无符号整数（32位的），需要调用此合约函数的调用方自己用前端 语言来进行处理
+    function getEndTimeStamp() public constant returns(uint){
+        return endtime;
+    }
+
+    //查询当前调用合约的节点已经总共捐助了多少eth
+    function getGiftBalance() public constant returns(uint){
+        return gift[msg.sender];
+    }
+
+    //查询已经有多少人捐助
+    function getGiftCount() public constant returns(uint){
+        return giftcount; 
+    }
+
+    //查询指定的节点已经总共捐助了多少eth
+    function getGiftBalanceFrom(address a) public constant returns(uint){
+        return gift[a];
+    }
+
+    //返回已参与节点的数组
+    function getalladdress() public constant returns(address[]){
+        return alladd;
+    }
+
+}
+```
+在remix在线编译器中，没有报错，然后，开始部署。
+此时直接弹出警告框——只是警告——
+```
+Gas estimation failed
+Gas estimation errored with the following message (see below). The transaction execution will likely fail. Do you want to force sending? 
+gas required exceeds allowance or always failing transaction
+```
+对英文很吃力，经百度翻译——
+```
+气体估计失败
+气体估计出错，出现以下信息（见下文）。事务执行可能会失败。是否要强制发送？
+所需天然气超过限额或总是交易失败
+```
+理解就是gas值设置不当，或超过了账户节点本身所拥有的eth总量，然后经过计算发现又没有！
+于是搜索，找到以下相关博文：
+https://blog.csdn.net/qq_33829547/article/details/80527389
+https://blog.csdn.net/zgf1991/article/details/90676486
+https://www.jianshu.com/p/6ac6de814582
+这时我意识到，可能不仅仅是gas不足的问题，更有可能是合约代码本身有错。
+于是再三尝试了多次，并删除了智能合约代码中我估计可能拿不准的地方，但每次部署失败的原因都是一样的：
+```
+Warning! Error encountered during contract execution [Bad jump destination] 
+```
+这不得不认定确实是合约本身有不当之处，毕竟我还只算是真正第一次上手写合约。
+
+
+【意外发现自己终于理解gas的两大参数的意思了】
+因为今天反复纠结于gas值的问题，于是终于理解了参数设置的意义——
+Gas limit
+表示要给多少“份额”的gas，所以这个参数是没有单位的，它是一个数量关系的描述。
+value
+即每一“份额”的单价，这个参数是有单位的，一般是wei作单位。
+于是一次事务（交易）最多可能消耗的gas就是
+gas limit 乘以 value的积。
+当然如果没有用到这么多gas，剩余的是会退还的。
+
+【学习后记】
+到今天发现确实有相当对自己学习的想法了。
+昨天发现之前一直在调用一个根本不存在（因为发布失败）的智能合约时，那种心情是崩溃的，因为等于宣称多天的折腾又回到起点，于是不由自主的，心中的愤恨就快暴发了，心里想的全是——设计的什么机制，错误提醒都不完备——总之错误全是别人的了。
+今天才回忆起来，其实错的应当是自己，最开始部署这个智能合约的时候其实可能就已经报错了，但粗心大意，可能已经给忽略了，却总觉得是别人有错，这是一种非常劣根性的思维，居然还没有消灭它，唉，真是失败。果然我真正要打败的是内心的那个充满劣根性的自我呵！
+
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1590 
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+
+ 
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/335784355 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1Hz4y1D79a/ 
+
