@@ -1,0 +1,297 @@
+孤荷凌寒自学第154天
+区块链068天Dapp023
+【主要内容】
+今天继续学习实战，做一个真正的依托于智能合约的DAPP。今天继续独立完善一个众筹的合约。共耗时37分钟。
+（此外整理作笔记花费了约64分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【solidity中的struct结构体】
+https://www.jianshu.com/p/c1893523a7ed
+https://blog.csdn.net/shuiyixin/article/details/89735828
+建构一个结构体，因为与其它编程语言没有多大区别，尚且可以非常容易的理解。
+花了些许时间来理解结构体数组的概念。
+一、将结构体命名作为自定义数据类型，像建立一般数组那样声明一个结构体类型的数组即可。
+（关于solidity的数组https://blog.csdn.net/qq_33764491/article/details/80394739）
+为了记录下第三个参与众筹的节点的地址与实际贡献了多少众筹金额，我定义的结构体如下：
+```
+    struct av{
+        address a;
+        uint v;
+    }
+
+```
+声明的结构体数组如下：
+```
+    av[] avav;
+```
+这与之前声明的另一个用于记录地址的address数组的写法似乎不同，没有区分出原因。
+
+【solidity的类型转换】
+Solidity的类型转换今天学得一团乱麻，几乎没有理清头绪。
+https://blog.csdn.net/lj900911/article/details/83037625
+http://me.tryblockchain.org/solidity-conversions.html
+https://learnblockchain.cn/2019/07/10/solidity-uint-to-bytes/
+因为我不能直接将结构体数组返回给外部调用的节点，所以只能设想将结构体打散，组合成字符串之后再返回出去。
+那么这就涉及到要将address类型转换为字符串。
+然而address其实是uint160类型的无符号整形数，只能先转换成byte类型，再转换为strin g类型，而且，此时其实我也不知道，调用此合约的节点为的前端程序如Js语言怎么处理这些零乱组合的字符串。但下面的转换代码还是报错了：
+```
+    //返回一个组合而成的string
+    function getgift() public constant returns(string){
+        string r;
+        address ad;
+        uint160 uintad;
+        bytes b; //这应当是动态的bytes数组的声明方法，如果是定长的，则应当是：bytes32等类型声明。
+        string strad;
+        for(uint i = 0;i<avav.length;i++){
+            ad=avav[i].a;
+            uintad=ad;
+            b=new bytes[32];
+            assembly{mstore(add(b, 32), uintad)}; //此句报错
+            strad=bytes32ToString(b);
+            r=strad + ";" + avav[i].v + "--";
+        }
+        return r;
+    }
+
+```
+当现在作笔记时，突然想到，其实我也不用全部组合成字符串的，可以在
+Retruns语句后，指定两个返回对象，分别返回地址数组与value（uint类型）数组两个返回值。
+
+【今天修改后的solidity合约内容】
+```
+pragma solidity ^0.4.25;
+
+//limit： 93364
+//value 10
+
+contract ZongChouCeshi{
+    address owner; //此变量记录下合约部署者（拥有者）的地址
+    uint goal; //要众筹的目标金额（当然这儿指的是eth）
+    uint endtime; //是指此众筹的时长(是一个无符号整数，单位是秒），如果在从部署合约之日加上此天数后的日期期限内达到目的金额，则说明众筹目标达到，合约部署者可以取走所有众筹金额，否则就由参与众筹者自己退回自己那份钱。
+    uint total=0; //这是实际众筹到的金额
+    uint giftcount=0; //记录下有多少节点参与了，不知道怎么检查去重。对映射类型的变量了解不够
+    address[] alladd=new address[](1); //这儿必须写上(1)，不然报错如下：
+    //Type function (uint256) returns (address[] memory) is not implicitly convertible to expected type address[] storage ref.
+    mapping(address=>uint) gift;
+
+    struct av{
+        address a;
+        uint v;
+    }
+
+    av[] avav;
+    //https://blog.csdn.net/shuiyixin/article/details/89735828
+
+    constructor() public{
+        owner = msg.sender;
+        goal = 1*(10**18); //1个ether
+        endtime = now + (2*24*60*60);
+        //变量 now 将返回当前的unix时间戳（自1970年1月1日以来经过的秒数）。
+        //来自博文：https://www.jianshu.com/p/4b8e943ce7f2
+    }
+
+    function () public payable{
+        require(now < endtime,"");
+        uint a = msg.value;
+        require(a > 0,"");
+        //assert(gift[msg.sender]>=0);
+        //每个节点至少捐赠大于0个eth
+        av avls;
+        if(gift[msg.sender]==0){ //判断此节点是否之前已经捐过款项
+            giftcount += 1; //统计已经有多少节点参与捐助，而且要去重节点。
+            alladd[alladd.length++] = msg.sender; //在地址数组中记录下当前地址,
+            alladd.push(msg.sender);
+            avls = av(msg.sender,a);
+            avav.push(avls);
+        }else{
+            //定位到指定的avav数组中的元素
+            for(uint i = 0;i < avav.length;a++){
+                if(avav[i].a==msg.sender){
+                    avav[i].v = avav[i].a + a;
+                }
+            }
+        }
+        gift[msg.sender] += a;
+        total += a;
+    }
+
+    function donate() public payable returns(bool isok){
+        require(now < endtime,"");
+        uint a = msg.value;
+        require(a > 0,"");
+        //每个节点至少捐赠大于0个eth
+        if(gift[msg.sender]==0){ //判断此节点是否之前已经捐过款项
+            giftcount += 1; //统计已经有多少节点参与捐助，而且要去重节点。
+            alladd[alladd.length++] = msg.sender; //在地址数组中记录下当前地址,
+            alladd.push(msg.sender);
+            avls = av(msg.sender,a);
+            avav.push(avls);
+        }else{
+            //定位到指定的avav数组中的元素
+            for(uint i = 0;i < avav.length;a++){
+                if(avav[i].a==msg.sender){
+                    avav[i].v = avav[i].a + a;
+                }
+            }
+        }
+        gift[msg.sender] += a;
+        total += a;
+        return true;
+    }
+
+    //如果众筹成功，即在规定的时间内，众筹了大于等于goal预设数量金额的eth，那么证明成功，则合约的部署节点可以取走这笔eth到合约部署节点的账户上。
+    function draw() public{
+        //首先要保证本次调用合约及调用本函数的节点是合约部署者。
+        //确实判断众筹目标已经达成。
+        require(msg.sender == owner);
+        require(total >= goal);
+        //require(now>endtime);
+        owner.transfer(address(this).balance); //执行转账，从合约地址转到部署合约的节点地址
+        //eth代币的转账书写方法是非常简洁的:
+        //接收转账金额的节点.transfer(转账金额)
+        //这样指定【转账金额】的eth就会转移给【接收转账金额的节点】
+    }
+    
+    //如果众筹失败，则参与众筹的节点可以调用合约的本方法来取回自己的捐赠
+    function withdraw() public{
+        //只有当众筹时间已过，本函数才可被调用
+        //确定判断众筹已经失败。
+        require(total < goal);
+        require(now>endtime);
+        uint amount = gift[msg.sender]; //获取当前调用合约的节点之前总共捐赠的eth的总金额
+        total -= amount; //从总金额中减少当前调用合约节点准备取回的eth金额
+        gift[msg.sender] = 0; //在gift表中，登记当前调用合约节点新的捐赠金额为0
+        address(msg.sender).transfer(amount); //当前调用合约的节点之前总共捐赠的eth的总金额转移回当前调用合约的节点            
+
+    }
+
+    //查询当前已筹集资金总额：
+    function getTotal() public constant returns(uint){
+        return total;
+    }
+
+    //查询当前合约节点自己的余额（这实际上就是total的数量，不过额外增加一个函数来查询）
+    function getContractBalance() public constant returns(uint){
+        return address(this).balance;
+    }
+
+    //查询截止日期,返回的是结束 日期那天的时间戳的一个无符号整数（32位的），需要调用此合约函数的调用方自己用前端 语言来进行处理
+    function getEndTimeStamp() public constant returns(uint){
+        return endtime;
+    }
+
+    //查询当前调用合约的节点已经总共捐助了多少eth
+    function getGiftBalance() public constant returns(uint){
+        return gift[msg.sender];
+    }
+
+    //查询已经有多少人捐助
+    function getGiftCount() public constant returns(uint){
+        return giftcount;
+    }
+
+    //查询指定的节点已经总共捐助了多少eth
+    function getGiftBalanceFrom(address a) public constant returns(uint){
+        return gift[a];
+    }
+
+    //返回已参与节点的数组
+    function getalladdress() public constant returns(address[]){
+        return alladd;
+    }
+
+    //返回众筹目标金额
+    function getgoal() public constant returns(uint){
+        return goal;
+    }
+
+    //返回一个组合而成的string
+    function getgift() public constant returns(string){
+        string r;
+        address ad;
+        uint160 uintad;
+        bytes b; //这应当是动态的bytes数组的声明方法，如果是定长的，则应当是：bytes32等类型声明。
+        string strad;
+        for(uint i = 0;i<avav.length;i++){
+            ad=avav[i].a;
+            uintad=ad;
+            b=new bytes[32];
+            assembly{mstore(add(b, 32), uintad)}; //此句报错
+            strad=bytes32ToString(b);
+            r=strad + ";" + avav[i].v + "--";
+        }
+        return r;
+    }
+
+
+
+    // 完整的固定大小字节数组转string的代码
+    function bytes32ToString(bytes32 x) constant returns (string) {
+        bytes memory bytesString = new bytes(32);
+        uint charCount = 0;
+        for (uint j = 0; j < 32; j++) {
+            byte char = byte(bytes32(uint(x) * 2 ** (8 * j)));
+            if (char != 0) {
+                bytesString[charCount] = char;
+                charCount++;
+            }
+        }
+        bytes memory bytesStringTrimmed = new bytes(charCount);
+        for (j = 0; j < charCount; j++) {
+            bytesStringTrimmed[j] = bytesString[j];
+        }
+        return string(bytesStringTrimmed);
+    }    //https://blog.csdn.net/lj900911/article/details/83037625
+
+
+    function bytes32ArrayToString(bytes32[] data) constant returns (string) {
+        bytes memory bytesString = new bytes(data.length * 32);
+        uint urlLength;
+        for (uint i = 0; i< data.length; i++) {
+            for (uint j = 0; j < 32; j++) {
+                byte char = byte(bytes32(uint(data[i]) * 2 ** (8 * j)));
+                if (char != 0) {
+                    bytesString[urlLength] = char;
+                    urlLength += 1;
+                }
+            }
+        }
+        bytes memory bytesStringTrimmed = new bytes(urlLength);
+        for (i = 0; i < urlLength; i++) {
+            bytesStringTrimmed[i] = bytesString[i];
+        }
+        return string(bytesStringTrimmed);
+    }    
+    //https://blog.csdn.net/lj900911/article/details/83037625
+
+}
+
+
+```
+
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1557  
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/339114779 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1q54y1q7GY/ 
+
