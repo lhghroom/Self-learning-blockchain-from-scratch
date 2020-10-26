@@ -1,0 +1,230 @@
+孤荷凌寒自学第155天
+区块链069Dapp024
+【主要内容】
+今天继续学习实战，做一个真正的依托于智能合约的DAPP。今天继续独立完善一个众筹的合约。共耗时31分钟。
+（此外整理作笔记花费了约24分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【因为可能没有完全理解solidity的数组，因此拆分向外传递struct数据仍然失败】
+按昨天的设想，将solidity中的struct结构体数组中有两个元素，一个是地址，一个是数量，我的设想时分别将数组中的地址提出来作为一个地址数组；同时将其中的数量提出来作为一个数量数组；尔后将这两个子数组作为两个返回变量传出去，但仍然失败。
+大概的错误原因初步分析为：对数组使用的理解 不够深入。
+最终放弃了这种做法。
+
+【solidity函数返回多个结果的写法】
+Solidity语言令人惊奇的地方是，它的函数是支持返回一个及以上的结果的，就我目前所知的其它编程语言好像都没有这样的神奇之处。但这是相当方便的。
+因此，如果函数计算之后有多个相关的结果 是可以方便的一次性全部返回出去的。
+https://blog.csdn.net/weixin_34000916/article/details/92404851
+一、	函数体返回多个结果时的写法：
+```
+// 函数可以返回多个值
+function multipleReturns() returns(uint a, uint b, uint c) {
+  return (1, 2, 3);
+}
+
+```
+关键就是要将多个返回结果加圆括号括起来。
+我今天最终写的函数如下：
+```
+    //返回地址及对应的value
+    function getgift() public constant returns(address[],uint[]){
+        return (alladd,allvalue);
+    }
+
+```
+
+二、	接收这多个返回的结果
+全部接收。
+```
+function processMultipleReturns() {
+  uint a;
+  uint b;
+  uint c;
+  // 这样来做批量赋值:
+  (a, b, c) = multipleReturns();
+}
+```
+上面是博文中的示范，很明显这儿只指了在solidity语言内部接收别的solidity函数返回 的多个结果的情况 。
+而其它语言如js等调用合约时的多个结果的接收还没有研究实践。
+部分接收：
+```
+// 或者如果我们只想返回其中一个变量:
+function getLastReturnValue() {
+  uint c;
+  // 可以对其他字段留空:
+  (,,c) = multipleReturns();
+}
+```
+
+
+【今天修改后的solidity合约内容】
+```
+pragma solidity ^0.4.25;
+
+contract ZongChouCeshi{
+    address owner; //此变量记录下合约部署者（拥有者）的地址
+    uint goal; //要众筹的目标金额（当然这儿指的是eth）
+    uint endtime; //是指此众筹的时长(是一个无符号整数，单位是秒），如果在从部署合约之日加上此天数后的日期期限内达到目的金额，则说明众筹目标达到，合约部署者可以取走所有众筹金额，否则就由参与众筹者自己退回自己那份钱。
+    uint total=0; //这是实际众筹到的金额
+    uint giftcount=0; //记录下有多少节点参与了，不知道怎么检查去重。对映射类型的变量了解不够
+    address[] alladd=new address[](1); //这儿必须写上(1)，不然报错如下：
+    uint[] allvalue=new uint[](1);
+    //Type function (uint256) returns (address[] memory) is not implicitly convertible to expected type address[] storage ref.
+    mapping(address=>uint) gift;
+
+    constructor() public{
+        owner = msg.sender;
+        goal = 0.1*(10**18); //1个ether
+        endtime = now + (2*24*60*60);
+        //变量 now 将返回当前的unix时间戳（自1970年1月1日以来经过的秒数）。
+        //来自博文：https://www.jianshu.com/p/4b8e943ce7f2
+    }
+
+    function () public payable{
+        require(now < endtime,"");
+        uint a = msg.value;
+        require(a > 0,"");
+        //assert(gift[msg.sender]>=0);
+        //每个节点至少捐赠大于0个eth
+        if(gift[msg.sender]==0){ //判断此节点是否之前已经捐过款项
+            giftcount += 1; //统计已经有多少节点参与捐助，而且要去重节点。
+            alladd[alladd.length++] = msg.sender; //在地址数组中记录下当前地址,
+            alladd.push(msg.sender);//这一句代码和上一句代码是重复作用的，是同样的功能 ，只保留 一句即可，但没有 验证
+            allvalue[allvalue.length++]=a;
+            allvalue.push(a);
+        }else{
+            //定位到指定的allvalue数组中的元素
+            for(uint i = 0;i < alladd.length;i++){
+                if(alladd[i]==msg.sender){
+                    allvalue[i] = allvalue[i] + a;
+                }
+            }
+        }
+        gift[msg.sender] += a;
+        total += a;
+    }
+
+    function donate() public payable returns(bool isok){
+        require(now < endtime,"");
+        uint a = msg.value;
+        require(a > 0,"");
+        //每个节点至少捐赠大于0个eth
+        //每个节点至少捐赠大于0个eth
+        if(gift[msg.sender]==0){ //判断此节点是否之前已经捐过款项
+            giftcount += 1; //统计已经有多少节点参与捐助，而且要去重节点。
+            alladd[alladd.length++] = msg.sender; //在地址数组中记录下当前地址,
+            alladd.push(msg.sender);
+            allvalue[allvalue.length++]=a;
+            allvalue.push(a);
+        }else{
+            //定位到指定的allvalue数组中的元素
+            for(uint i = 0;i < alladd.length;i++){
+                if(alladd[i]==msg.sender){
+                    allvalue[i] = allvalue[i] + a;
+                }
+            }
+        }
+        gift[msg.sender] += a;
+        total += a;
+        return true;
+    }
+
+    //如果众筹成功，即在规定的时间内，众筹了大于等于goal预设数量金额的eth，那么证明成功，则合约的部署节点可以取走这笔eth到合约部署节点的账户上。
+    function draw() public{
+        //首先要保证本次调用合约及调用本函数的节点是合约部署者。
+        //确实判断众筹目标已经达成。
+        require(msg.sender == owner);
+        require(total >= goal);
+        //require(now>endtime);
+        owner.transfer(address(this).balance); //执行转账，从合约地址转到部署合约的节点地址
+        //eth代币的转账书写方法是非常简洁的:
+        //接收转账金额的节点.transfer(转账金额)
+        //这样指定【转账金额】的eth就会转移给【接收转账金额的节点】
+    }
+    
+    //如果众筹失败，则参与众筹的节点可以调用合约的本方法来取回自己的捐赠
+    function withdraw() public{
+        //只有当众筹时间已过，本函数才可被调用
+        //确定判断众筹已经失败。
+        require(total < goal);
+        require(now>endtime);
+        uint amount = gift[msg.sender]; //获取当前调用合约的节点之前总共捐赠的eth的总金额
+        total -= amount; //从总金额中减少当前调用合约节点准备取回的eth金额
+        gift[msg.sender] = 0; //在gift表中，登记当前调用合约节点新的捐赠金额为0
+        address(msg.sender).transfer(amount); //当前调用合约的节点之前总共捐赠的eth的总金额转移回当前调用合约的节点            
+
+    }
+
+    //查询当前已筹集资金总额：
+    function getTotal() public constant returns(uint){
+        return total;
+    }
+
+    //查询当前合约节点自己的余额（这实际上就是total的数量，不过额外增加一个函数来查询）
+    function getContractBalance() public constant returns(uint){
+        return address(this).balance;
+    }
+
+    //查询截止日期,返回的是结束 日期那天的时间戳的一个无符号整数（32位的），需要调用此合约函数的调用方自己用前端 语言来进行处理
+    function getEndTimeStamp() public constant returns(uint){
+        return endtime;
+    }
+
+    //查询当前调用合约的节点已经总共捐助了多少eth
+    function getGiftBalance() public constant returns(uint){
+        return gift[msg.sender];
+    }
+
+    //查询已经有多少人捐助
+    function getGiftCount() public constant returns(uint){
+        return giftcount;
+    }
+
+    //查询指定的节点已经总共捐助了多少eth
+    function getGiftBalanceFrom(address a) public constant returns(uint){
+        return gift[a];
+    }
+
+    //返回已参与节点的数组
+    function getalladdress() public constant returns(address[]){
+        return alladd;
+    }
+
+    //返回众筹目标金额
+    function getgoal() public constant returns(uint){
+        return goal;
+    }
+
+    //返回地址及对应的value
+    function getgift() public constant returns(address[],uint[]){
+        return (alladd,allvalue);
+    }
+
+}
+
+```
+
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1642  
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/339434150 
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1v54y1q7Ye/ 
+
