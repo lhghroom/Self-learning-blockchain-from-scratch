@@ -1,0 +1,747 @@
+孤荷凌寒自学第157天
+区块链071天Dapp026
+【主要内容】
+今天继续学习实战，做一个真正的依托于智能合约的DAPP。今天继续独立完善一个众筹的合约。共耗时31分钟。
+（此外整理作笔记花费了约22分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【重新发布的合约代码】
+```
+pragma solidity ^0.4.25;
+
+contract ZongChouCeshi{
+    address owner; //此变量记录下合约部署者（拥有者）的地址
+    uint goal; //要众筹的目标金额（当然这儿指的是eth）
+    uint endtime; //是指此众筹的时长(是一个无符号整数，单位是秒），如果在从部署合约之日加上此天数后的日期期限内达到目的金额，则说明众筹目标达到，合约部署者可以取走所有众筹金额，否则就由参与众筹者自己退回自己那份钱。
+    uint total=0; //这是实际众筹到的金额
+    uint giftcount=0; //记录下有多少节点参与了，不知道怎么检查去重。对映射类型的变量了解不够
+    address[] alladd=new address[](1); //这儿必须写上(1)，不然报错如下：
+    uint[] allvalue=new uint[](1);
+    //Type function (uint256) returns (address[] memory) is not implicitly convertible to expected type address[] storage ref.
+    mapping(address=>uint) gift;
+
+    constructor() public{
+        owner = msg.sender;
+        goal = 0.1*(10**18); //1个ether
+        endtime = now + (2*24*60*60);
+        //变量 now 将返回当前的unix时间戳（自1970年1月1日以来经过的秒数）。
+        //来自博文：https://www.jianshu.com/p/4b8e943ce7f2
+    }
+
+    function () public payable{
+        require(now < endtime,"");
+        uint a = msg.value;
+        require(a > 0,"");
+        //assert(gift[msg.sender]>=0);
+        //每个节点至少捐赠大于0个eth
+        if(gift[msg.sender]==0){ //判断此节点是否之前已经捐过款项
+            giftcount += 1; //统计已经有多少节点参与捐助，而且要去重节点。
+            alladd[alladd.length++] = msg.sender; //在地址数组中记录下当前地址,
+            //alladd.push(msg.sender);//这一句代码和上一句代码是重复作用的，是同样的功能 ，只保留 一句即可，但没有 验证
+            allvalue[allvalue.length++] = a;
+            //allvalue.push(a);
+        }else{
+            //定位到指定的allvalue数组中的元素
+            for(uint i = 0;i < alladd.length;i++){
+                if(alladd[i]==msg.sender){
+                    allvalue[i] = allvalue[i] + a;
+                }
+            }
+        }
+        gift[msg.sender] += a;
+        total += a;
+    }
+
+    function donate() public payable returns(bool isok){
+        require(now < endtime,"");
+        uint a = msg.value;
+        require(a > 0,"");
+        //每个节点至少捐赠大于0个eth
+        //每个节点至少捐赠大于0个eth
+        if(gift[msg.sender]==0){ //判断此节点是否之前已经捐过款项
+            giftcount += 1; //统计已经有多少节点参与捐助，而且要去重节点。
+            alladd[alladd.length++] = msg.sender; //在地址数组中记录下当前地址,
+            //alladd.push(msg.sender);
+            allvalue[allvalue.length++] = a;
+            //allvalue.push(a);
+        }else{
+            //定位到指定的allvalue数组中的元素
+            for(uint i = 0;i < alladd.length;i++){
+                if(alladd[i]==msg.sender){
+                    allvalue[i] = allvalue[i] + a;
+                }
+            }
+        }
+        gift[msg.sender] += a;
+        total += a;
+        return true;
+    }
+
+    //如果众筹成功，即在规定的时间内，众筹了大于等于goal预设数量金额的eth，那么证明成功，则合约的部署节点可以取走这笔eth到合约部署节点的账户上。
+    function draw() public{
+        //首先要保证本次调用合约及调用本函数的节点是合约部署者。
+        //确实判断众筹目标已经达成。
+        require(msg.sender == owner);
+        require(total >= goal);
+        //require(now>endtime);
+        owner.transfer(address(this).balance); //执行转账，从合约地址转到部署合约的节点地址
+        //eth代币的转账书写方法是非常简洁的:
+        //接收转账金额的节点.transfer(转账金额)
+        //这样指定【转账金额】的eth就会转移给【接收转账金额的节点】
+    }
+    
+    //如果众筹失败，则参与众筹的节点可以调用合约的本方法来取回自己的捐赠
+    function withdraw() public{
+        //只有当众筹时间已过，本函数才可被调用
+        //确定判断众筹已经失败。
+        require(total < goal);
+        require(now > endtime);
+        uint amount = gift[msg.sender]; //获取当前调用合约的节点之前总共捐赠的eth的总金额
+        total -= amount; //从总金额中减少当前调用合约节点准备取回的eth金额
+        gift[msg.sender] = 0; //在gift表中，登记当前调用合约节点新的捐赠金额为0
+        address(msg.sender).transfer(amount); //当前调用合约的节点之前总共捐赠的eth的总金额转移回当前调用合约的节点            
+
+    }
+
+    //查询当前已筹集资金总额：
+    function getTotal() public view returns(uint){
+        return total;
+    }
+
+    //查询当前合约节点自己的余额（这实际上就是total的数量，不过额外增加一个函数来查询）
+    function getContractBalance() public view returns(uint){
+        return address(this).balance;
+    }
+
+    //查询截止日期,返回的是结束 日期那天的时间戳的一个无符号整数（32位的），需要调用此合约函数的调用方自己用前端 语言来进行处理
+    function getEndTimeStamp() public view returns(uint){
+        return endtime;
+    }
+
+    //查询当前调用合约的节点已经总共捐助了多少eth
+    function getGiftBalance() public view returns(uint){
+        return gift[msg.sender];
+    }
+
+    //查询已经有多少人捐助
+    function getGiftCount() public view returns(uint){
+        return giftcount;
+    }
+
+    //查询指定的节点已经总共捐助了多少eth
+    function getGiftBalanceFrom(address a) public view returns(uint){
+        return gift[a];
+    }
+
+    //返回已参与节点的数组
+    function getalladdress() public view returns(address[]){
+        return alladd;
+    }
+
+    //返回众筹目标金额
+    function getgoal() public view returns(uint){
+        return goal;
+    }
+
+    //返回地址及对应的value
+    function getgift() public view returns(address[],uint[]){
+        return (alladd,allvalue);
+    }
+
+}
+
+```
+
+
+【今天修改后的html前端代码】
+```
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>我要众筹</title>
+    <script language="javascript" type="text/javascript" src="jquery.min.js"></script>
+    <script language="javascript" type="text/javascript" src="web3.min.js"></script>
+    <!-- 1. Include cryptozombies_abi.js here -->
+    <script language="javascript" type="text/javascript" src="zongchou_abi2.js"></script>
+
+    <script>
+// 格式化日期，如月、日、时、分、秒保证为2位数
+function formatNumber (n) {
+    n = n.toString()
+    return n[1] ? n : '0' + n;
+}
+// 参数number为毫秒时间戳，format为需要转换成的日期格式
+function formatTime (number, format) {
+    let time = new Date(number)
+    let newArr = []
+    let formatArr = ['Y', 'M', 'D', 'h', 'm', 's']
+    newArr.push(time.getFullYear())
+    newArr.push(formatNumber(time.getMonth() + 1))
+    newArr.push(formatNumber(time.getDate()))
+
+    newArr.push(formatNumber(time.getHours()))
+    newArr.push(formatNumber(time.getMinutes()))
+    newArr.push(formatNumber(time.getSeconds()))
+
+    for (let i in newArr) {
+        format = format.replace(formatArr[i], newArr[i])
+    }
+    return format;
+}
+
+            //声明一些钱包地址：
+            //下面一行定义的是部署合约的节点（创世节点）的信息，公钥
+            var wallet_address="0x5227C3EF48B5A1bcF784593e46D9579D26a3b592"; //狐狸钱包的公钥，就是钱包地址，是eth网络上的一个节点。
+            //下面一行定义的是节点2的信息
+            var w2add="0xe2d6c2f289c53B5aEA44C47293Ba179a3bfa21f0"; //公钥
+    
+            //下面一行定义的是节点3 的信息
+            var w3add="0xb40599fB0366DCf0ffe86677b005b3f20Dfa29aE"; //公钥
+    
+            //下面一行定义的是节点4 的信息
+            var w4add="0x70c8461366d5368B1E79CBFc2Acf4ba56C745977"; //公钥
+    
+    
+   
+            // 2. Start code here
+            var cc;
+            var web3;
+
+            var heyueAddress = "0xe678bcf86e06c74d764adf145d1711eca2c2754a"; //要连接的合约地址
+
+            function startApp() {
+                try {
+                    var ccc=web3.eth.contract(zongchouABI);
+                    cc=ccc.at(heyueAddress); //https://www.cnblogs.com/tinyxiong/p/9046626.html
+                    //cc =new web3.eth.contract(cryptozombiesABI, cryptoZombiesAddress); //如果是另一个版本可能还得加上new关键字。
+                    $("#firstinfo").html("连接上合约！")
+                    //alert(typeof cc);
+                    web3.eth.getAccounts(function (err, accounts) {
+                            if (accounts.length == 0) {
+                                $("#firstinfo").html("请检查钱包是否解锁");
+                            }else{
+                                $("#accountsinfo").html("获取的默认钱包地址：" + web3.eth.defaultAccount);
+                                getCurGift();
+                            }
+                        });
+    
+                } catch (err) {
+                    alert(err);
+                }
+                $("#firstinfo").html("加载成功");
+                
+            }
+    
+            //async () => 
+
+        //现在这种通过we3.min.js来加载钱包连接的方法，在metamask钱包和麦子钱包中都测试通过。
+        window.addEventListener('load',function() {
+        try{
+            if (typeof web3 !== 'undefined') {
+                web3 = new Web3(web3.currentProvider);
+                startApp();
+            } else {
+                //$('#app_loading').hide();
+                //alert(jQuery.i18n.prop('lrn_error_alert'));
+                //mathWallet.closePage();
+                alert("这儿没有钱包环境。");
+            }
+
+        }catch(err){
+            alert(err);
+        }
+        });
+
+    
+            //----------------下面是自定义的与合约交互的函数-------------------------
+            //--查询总金额---
+            function gettotal(){
+                try{
+                    cc.getTotal(function(error, result){  //https://www.jianshu.com/p/15ff9da4dd8d
+                    if(!error)
+                    {
+                        var fln=result / (10**18);
+                        $("#total").html("已获得众筹总金额：" + fln + " ether");
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#total").html('获取出错：' + error);
+                    }});
+                    //return "ok"
+                    $("#total").html('正在获取。。。');
+                }catch(err){
+                    $("#total").html('出错 ：' + err);
+                }
+            }
+
+            //--查询总金额---
+            function gettotal2(){
+                try{
+                    cc.getContractBalance(function(error, result){  //https://www.jianshu.com/p/15ff9da4dd8d
+                    if(!error)
+                    {
+                        var fln=result / (10**18);
+
+                        $("#total2").html("合约地址代币余额：" + fln + " ether");
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#total2").html('获取出错：' + error);
+                    }});
+                    //return "ok"
+                    $("#total2").html('正在获取。。。');
+                }catch(err){
+                    $("#total2").html('出错 ：' + err);
+                }
+            }
+    
+
+            //查询本次授权的结束日期和时间
+            function getEndTimeStamp(){
+                try{
+                    cc.getEndTimeStamp(function(error, result){  //https://www.jianshu.com/p/15ff9da4dd8d
+                        if(!error)
+                    {
+                        t=formatTime(result * 1000,"Y-M-D h:m:s");
+                        $("#endtime").html("本次众筹截止时间：" + t);
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#endtime").html('获取出错：' + error);
+                    }});
+                    //return "ok"
+                    $("#endtime").html('正在获取。。。');
+                }catch(err){
+                    alert("使用授权代币转移时出错 ：" + err)
+                    return err;
+                }
+            }
+
+            //查询参与的节点
+            function getAllAddress(){
+                try{
+                    cc.getalladdress(function(error, result){
+                    if(!error)
+                    {
+                        //result本身就是一个数组对象。
+                        //alert(result.length);
+                        var strls="";
+                        for(i=0;i<result.length;i++){
+                            if(i>0){
+                                strls=strls + "<br />" + result[i]
+                            }
+                        }
+                        $("#alladdress").html("已参与节点列表：" + strls);
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#alladdress").html('获取出错：' + error);
+                    }});
+                    //return "ok"
+                    $("#alladdress").html('正在获取。。。');
+                }catch(err){
+                    alert("查询所有已参与节点时出错：" + err)
+                    return err;
+                }
+            }
+
+            //查询已参与节点的总数---
+            function getAddressCount(){
+                try{
+                    cc.getGiftCount(function(error, result){
+                        if(!error)
+                    {
+                        
+                        $("#addresscount").html("参与众筹的节点有" + result + "个");
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#addresscount").html('获取出错：' + error);
+                    }});
+                    //return "ok"
+                    $("#addresscount").html('正在获取。。。');
+                }catch(err){
+                    alert("查询所有已参与节点总数时出错：" + err)
+                    return err;
+                }
+            }
+
+            //查询所有节点 与参与金额
+            function getallgiftandvalue(){
+                try {
+                    cc.getgift(function(error, result){
+                    if(!error)
+                    {
+                        //result本身就是一个数组对象。
+                        //alert(result.length);
+
+                        if(result.length>1){
+                            var adds=result[0];
+                            var vs=result[1];
+                            //alert(adds.length);
+                            //alert(vs.length);
+                            var strls="";
+                            var fln=0.0;
+                            for(i=0;i<adds.length;i++){
+                                if(i>0){
+                                    fln=(vs[i] - 0.0)/(10**18);
+                                    strls=strls + "<br />" + adds[i] + " 捐赠:" + fln + "ether;";
+                                }
+                            }
+                            $("#alladdressandvalue").html(strls);
+                        }else{
+                            $("#alladdressandvalue").html("获取到的结果不完整。")
+                        }
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#alladdressandvalue").html('获取出错：' + error);
+                    }});
+                    //return "ok"
+                    $("#alladdressandvalue").html('正在获取。。。');
+                } catch (error) {
+                    alert("在查询所有参与节点与众筹金额对照关系时出错：" + error)
+                }
+            }
+
+            //查询指定节点地址的参与众筹金额
+            function getAddressGift(a){
+                try {
+                    cc.getGiftBalanceFrom(a,function(error, result){
+                        if(!error)
+                    {
+                        //alert(result); 
+                        var fln=result / (10**18);
+                        $("#address").html("此节点共参与众筹：" + fln + "ether");
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#addresscount").html('获取出错：' + error);
+                    }});
+                    $("address").html('正在获取... ...');
+                } catch (error) {
+                    alert("查询指定节点已众筹金额时出错 ：" + error);
+                    return error;
+                }
+            }
+
+            //---查询当前默认节点地址自己的参与众筹金额：
+            function getCurGift(){
+                try {
+                    cc.getGiftBalance(function(error, result){
+                        if(!error)
+                    {
+                        //alert(result); 
+                        var fln=result / (10**18);
+                        $("#curinfo").html("共参与众筹：" + fln + "ether");
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#curinfo").html('具体参与金额获取出错：' + error);
+                    }});
+                    $("#curinfo").html('正在获取... ...');
+
+                    //-------------------
+                    cc.getgoal(function(error, result){
+                        if(!error)
+                    {
+                        //alert(result); 
+                        var fln=result / (10**18);
+                        $("#goal").html("目标众筹总量：" + fln + "ether");
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#goal").html('获取目标众筹总量出错：' + error);
+                    }});
+                    $("#goal").html('正在获取... ...');
+
+
+
+                } catch (error) {
+                    alert("查询当前节点已众筹金额时出错 ：" + error);
+                    return error;
+                }
+            }
+
+            //参与众筹---
+            function dodate(intvalue){
+                //alert(intvalue);
+                try{
+                    web3.eth.getTransactionCount(web3.eth.defaultAccount,function(err,res){
+                        if(!err){
+                            //alert(res);
+                            var message = {to:heyueAddress,value:web3.toWei(intvalue,'ether'),'chainId': 3,'gas': 140000,'gasPrice': web3.toWei('40', 'gwei'),'nonce': res};
+                            //cc.donate(message,function(err, res){ //使用这行所示方法，交易可以发起，但无法成功完成
+                            //使用下一行的方法，执行成功
+                            cc.donate.sendTransaction(message,function(err, res){
+                                var output = "";
+                                if (!err) {
+                                    output += res;
+                                } else {
+                                    output = err;
+                                }
+                                document.getElementById('donateback').innerHTML = "返回信息：Transaction response= " + output + "<br />";
+                            });
+                            return "ok";
+                        }else{
+                            alert(err);
+                        }
+                    }); 
+                    document.getElementById('donateback').innerHTML = "操作执行中...";
+                }catch(err){
+                    alert('执行参与众筹出错：' + err);
+                    document.getElementById('donateback').innerHTML = "执行失败：Transaction response= " + output + "<br />";
+                    return err;
+                }
+            }
+
+            //取回自己的金额----
+            function getmygiftback(){
+                try {
+                    cc.withdraw(function(error, result){
+                        if(!error)
+                    {
+                        
+                        $("#getback").html("操作完成。" + result);
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#getback").html('操作失败：' + error);
+                    }});
+                    //return "ok"
+                    $("#getback").html('正在操作。。。');
+                } catch (error) {
+                    alert("尝试取回自己的参与众筹金额的份额时出错 ：" + error)
+                }
+            }
+
+            //发起众筹节点取走成功众筹的总金额
+            function getdraw(){
+                try {
+                    cc.draw(function(error, result){
+                        if(!error)
+                    {
+                        
+                        $("#getdoback").html("操作完成。" + result);
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#getdoback").html('操作失败：' + error);
+                    }});
+                    //return "ok"
+                    $("#getdoback").html('正在操作。。。');
+                } catch (error) {
+                    alert("尝试取走众筹款项时出错 ;" + error)
+                }
+            }
+
+            //--------------------------调用测试---------------------------------------
+            //--查询total
+            function cmdone_click(){
+                try{
+                    gettotal();
+                }catch(err){
+                    alert(err);
+                }
+            }
+
+            //--查询total2
+            function cmdone2_click(){
+                try{
+                    gettotal2();
+                }catch(err){
+                    alert(err);
+                }
+            }
+    
+            //--查询本次众筹的结束日期和时间----
+            function cmdtwo_click(){
+                try{
+                    getEndTimeStamp();
+                }catch(err){
+                    alert(err);
+                }
+            }
+
+            //--查询所有已参与节点---
+            function cmdthree_click(){
+                try{
+                    getAllAddress();
+                }catch(err){
+                    alert(err);
+                }
+            }
+
+            //--查询已参与节点总数--
+            function cmdfoure_click(){
+                try{
+                    getAddressCount();
+                }catch(err){
+                    alert(err);
+                }
+            }
+
+            //--查询指定节点的参与总金额---
+            function cmdfive_click(){
+                try{
+                    var v=document.getElementById("txtaddress").value;
+                    if(v.length<=0){
+                        alert("请先输入要查询的节点地址");
+                    }else{
+                        getAddressGift(v);
+                    }
+                    
+                }catch(err){
+                    alert(err);
+                }
+            }
+
+            //--查询所有节点与金额对照字典
+            function cmdsix_click(){
+                try {
+                    getallgiftandvalue();
+                } catch (error) {
+                    alert(error);
+                }
+            }
+
+            //--参与众筹-------------
+            function cmddonate_click(){
+                try{
+                    var strls=document.getElementById("txtvalue").value;
+                    //alert(strls);
+                    if(/^[0-9]+\.?[0-9]+?$/.test(strls)){
+                        var fls=parseFloat(strls);
+                        //var intls=fls * (10**18);
+                        //alert(fls);
+                        k=dodate(fls);
+                    }else{
+                        alert('只能输入数字');
+                    }
+                }catch(err){
+                    alert("操作失败：" + err);
+                }
+            }
+
+            //---参与众筹都取回自己的参与金额---
+            function cmdgetback_click(){
+                try {
+                    getmygiftback();
+                } catch (error) {
+                    alert("操作失败：" + error);
+                }
+            }
+
+            //众筹发起者取走成功众筹的金额
+            function cmddo_click(){
+                try {
+                    getdraw();
+                } catch (error) {
+                    alert("操作失败：" + error)   
+                }
+            }
+
+    
+        </script>
+        
+</head>
+<body>
+    <div>
+        <p id="goal" name="goal">
+
+        </p>
+
+        <p id="firstinfo" name="firstinfo">
+
+        </p>
+
+        <p id="accountsinfo" name="accountsinfo">
+
+        </p>
+        <p id="curinfo" name="curinfo">
+
+        </p>
+    
+    </div>
+    <div>
+        <input type="button" value="查询当前众筹总金额" id="cmdone" name="cmdone" onclick="cmdone_click();" />
+        <span id="total" name="total"></span>
+        <br /><br />
+        <input type="button" value="查询当前众筹总金额" id="cmdone2" name="cmdone2" onclick="cmdone2_click();" />
+        <span id="total2" name="total2"></span>
+        <br /><br />
+        <input type="button" value="查询此众筹的截止日期和时间" id="cmdtwo" name="cmdtwo" onclick="cmdtwo_click();" />
+        <span id="endtime" name="endtime"></span>
+        <br /><br />
+        <input type="button" value="查询此众筹已参与节点" id="cmdthree" name="cmdthree" onclick="cmdthree_click();" />
+        <span id="alladdress" name="alladdress"></span>
+        <br /><br />
+        <input type="button" value="查询此众筹已参与节点和金额" id="cmdsix" name="cmdsix" onclick="cmdsix_click();" />
+        <span id="alladdressandvalue" name="alladdressandvalue"></span>
+        <br /><br />
+        <input type="button" value="查询此众筹参与节点总数" id="cmdfoure" name="cmdfoure" onclick="cmdfoure_click();" />
+        <span id="addresscount" name="addresscount"></span>
+        <br /><br />
+        <input type="button" value="查询指定节点参与金额" id="cmdfive" name="cmdfive" onclick="cmdfive_click();" />
+        <br />
+        <input type="text" value="" id="txtaddress" name="txtaddress" style="width:200px;" />
+        <br />
+        <span id="address" name="address"></span>
+        <br /><br />
+        <input type="button" value="我要入筹" id="cmddo" name="cmddo" onclick="cmddonate_click();" />
+        <input type="text" value="0.001" id="txtvalue" name="txtvalue" />eth
+        <br />
+        <span id="donateback" name="donateback"></span>
+        <br /><br />
+        <input type="button" value="取回我的众筹" id="cmdgetback" name="cmdgetback" onclick="cmdgetback_click();" />
+        <span id="getback" name="getback">只有超过众筹结束时间之后，且没有完成众筹金额时才能取回。</span>
+        <br /><br />
+        <input type="button" value="取走众筹款" id="cmddo" name="cmddo" onclick="cmddo_click();" />
+        <span id="getdoback" name="getdoback">只有众筹合约发起节点才能取走众筹成功的款项。</span>
+        <br /><br />
+
+    </div>
+    
+</body>
+</html>
+
+```
+
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1644   
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/340031861 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1RT4y177Q6/ 
+
