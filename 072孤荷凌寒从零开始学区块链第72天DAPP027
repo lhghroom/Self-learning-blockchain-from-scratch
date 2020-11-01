@@ -1,0 +1,220 @@
+孤荷凌寒自学第158天
+区块链072天Dapp027
+【主要内容】
+今天继续学习实战，做一个真正的依托于智能合约的DAPP。今天继续独立完善一个众筹的合约。共耗时36分钟。
+（此外整理作笔记花费了约48分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【在一个合约的定义代码中如何连接并调用另一个合约的函数】
+第一步：
+声明那个合约的空壳子
+就是说把要连接并准备调用的那个合约的结构重新声明一遍，但没有具体函数体，只有一个函数壳，如，我今天要在众筹合约中连接之前发布的CI代币合约。
+先进行那个代币合约的空壳声明——
+```
+// 声明 token 合约接口
+interface CloudImageToken {
+    function transferFrom(address _from, address _to, uint256 _value) external;
+}
+
+
+```
+因为我要调用token合约中的函数：transferFrom，所以就要声明一下，但此处这个函数只有一个空壳子，特别注意，最后一定要以：
+External 关键字结尾，而不管原合约中完整函数声明时是什么样子的。
+
+第二步：
+通过合约地址连接到代币合约，并实例化连接到的这个合约对象——
+```
+        tokenci = CloudImageToken(0xf89074dcdd8798b7e20b8cd88a9a38f27479411c); //连接到代币合约
+        //上一行的地址只能直接使用这个十六进制的值https://www.jianshu.com/p/f587eccaf639
+```
+要使用已老婆如何的合约中已声明函数的时候，直接使用
+Tokenci.要调用的函数
+就可以调用另一个连接上的合约中的函数了。
+
+【今天修改了众筹合约代码，有两处警告提示】
+```
+pragma solidity ^0.4.25;
+
+// 声明 token 合约接口
+interface CloudImageToken {
+    function transferFrom(address _from, address _to, uint256 _value) external;
+}
+
+contract ZongChouIco{
+    address owner; //此变量记录下合约部署者（拥有者）的地址
+    uint goal; //要众筹的目标金额（当然这儿指的是eth）
+    uint endtime; //是指此众筹的时长(是一个无符号整数，单位是秒），如果在从部署合约之日加上此天数后的日期期限内达到目的金额，则说明众筹目标达到，合约部署者可以取走所有众筹金额，否则就由参与众筹者自己退回自己那份钱。
+    uint total=0; //这是实际众筹到的金额
+
+    CloudImageToken public tokenci;
+
+    uint giftcount=0; //记录下有多少节点参与了，不知道怎么检查去重。对映射类型的变量了解不够
+    address[] alladd=new address[](1); //这儿必须写上(1)，不然报错如下：
+    uint[] allvalue=new uint[](1);
+    //Type function (uint256) returns (address[] memory) is not implicitly convertible to expected type address[] storage ref.
+    mapping(address=>uint) gift;
+
+    //http://www.r9it.com/20180727/crowd-by-token.html
+    event GoalReached(address recipient, uint totalAmountRaised); //众筹金额达标的事件广播
+    event FundTransfer(address investor, uint amount, bool isContribution); //向投资人节点返回代币成功
+    event InvestorWithdraw(address investor, uint amount, bool success); // 投资人提现事件
+    event BeneficiaryWithdraw(address beneficiary, uint amount, bool success); // 受益人提现事件
+
+    constructor() public{
+        owner = msg.sender;
+        goal = 0.1*(10**18); //1个ether
+        endtime = now + (2*24*60*60); //截止时间是两天
+        tokenci = CloudImageToken(0xf89074dcdd8798b7e20b8cd88a9a38f27479411c); //连接到代币合约
+        //上一行的地址只能直接使用这个十六进制的值https://www.jianshu.com/p/f587eccaf639
+        //变量 now 将返回当前的unix时间戳（自1970年1月1日以来经过的秒数）。
+        //来自博文：https://www.jianshu.com/p/4b8e943ce7f2
+    }
+
+    function () public payable{
+        require(now < endtime,"");
+        uint a = msg.value;
+        require(a > 0,"");
+        //assert(gift[msg.sender]>=0);
+        //每个节点至少捐赠大于0个eth
+        if(gift[msg.sender]==0){ //判断此节点是否之前已经捐过款项
+            giftcount += 1; //统计已经有多少节点参与捐助，而且要去重节点。
+            alladd[alladd.length++] = msg.sender; //在地址数组中记录下当前地址,
+            //alladd.push(msg.sender);//这一句代码和上一句代码是重复作用的，是同样的功能 ，只保留 一句即可，但没有 验证
+            allvalue[allvalue.length++] = a;
+            //allvalue.push(a);
+        }else{
+            //定位到指定的allvalue数组中的元素
+            for(uint i = 0;i < alladd.length;i++){
+                if(alladd[i]==msg.sender){
+                    allvalue[i] = allvalue[i] + a;
+                }
+            }
+        }
+        gift[msg.sender] += a;
+        total += a;
+    }
+
+    function donate() public payable returns(bool isok){
+        require(now < endtime,"");
+        uint a = msg.value;
+        require(a > 0,"");
+        //每个节点至少捐赠大于0个eth
+        //每个节点至少捐赠大于0个eth
+        if(gift[msg.sender]==0){ //判断此节点是否之前已经捐过款项
+            giftcount += 1; //统计已经有多少节点参与捐助，而且要去重节点。
+            alladd[alladd.length++] = msg.sender; //在地址数组中记录下当前地址,
+            //alladd.push(msg.sender);
+            allvalue[allvalue.length++] = a;
+            //allvalue.push(a);
+        }else{
+            //定位到指定的allvalue数组中的元素
+            for(uint i = 0;i < alladd.length;i++){
+                if(alladd[i]==msg.sender){
+                    allvalue[i] = allvalue[i] + a;
+                }
+            }
+        }
+        gift[msg.sender] += a;
+        total += a;
+        return true;
+    }
+
+    //如果众筹成功，即在规定的时间内，众筹了大于等于goal预设数量金额的eth，那么证明成功，则合约的部署节点可以取走这笔eth到合约部署节点的账户上。
+    function draw() public{
+        //首先要保证本次调用合约及调用本函数的节点是合约部署者。
+        //确实判断众筹目标已经达成。
+        require(msg.sender == owner);
+        require(total >= goal);
+        //require(now>endtime);
+        owner.transfer(address(this).balance); //执行转账，从合约地址转到部署合约的节点地址
+        //eth代币的转账书写方法是非常简洁的:
+        //接收转账金额的节点.transfer(转账金额)
+        //这样指定【转账金额】的eth就会转移给【接收转账金额的节点】
+    }
+    
+    //如果众筹失败，则参与众筹的节点可以调用合约的本方法来取回自己的捐赠
+    function withdraw() public{
+        //只有当众筹时间已过，本函数才可被调用
+        //确定判断众筹已经失败。
+        require(total < goal);
+        require(now > endtime);
+        uint amount = gift[msg.sender]; //获取当前调用合约的节点之前总共捐赠的eth的总金额
+        total -= amount; //从总金额中减少当前调用合约节点准备取回的eth金额
+        gift[msg.sender] = 0; //在gift表中，登记当前调用合约节点新的捐赠金额为0
+        address(msg.sender).transfer(amount); //当前调用合约的节点之前总共捐赠的eth的总金额转移回当前调用合约的节点            
+
+    }
+
+    //查询当前已筹集资金总额：
+    function getTotal() public view returns(uint){
+        return total;
+    }
+
+    //查询当前合约节点自己的余额（这实际上就是total的数量，不过额外增加一个函数来查询）
+    function getContractBalance() public view returns(uint){
+        return address(this).balance;
+    }
+
+    //查询截止日期,返回的是结束 日期那天的时间戳的一个无符号整数（32位的），需要调用此合约函数的调用方自己用前端 语言来进行处理
+    function getEndTimeStamp() public view returns(uint){
+        return endtime;
+    }
+
+    //查询当前调用合约的节点已经总共捐助了多少eth
+    function getGiftBalance() public view returns(uint){
+        return gift[msg.sender];
+    }
+
+    //查询已经有多少人捐助
+    function getGiftCount() public view returns(uint){
+        return giftcount;
+    }
+
+    //查询指定的节点已经总共捐助了多少eth
+    function getGiftBalanceFrom(address a) public view returns(uint){
+        return gift[a];
+    }
+
+    //返回已参与节点的数组
+    function getalladdress() public view returns(address[]){
+        return alladd;
+    }
+
+    //返回众筹目标金额
+    function getgoal() public view returns(uint){
+        return goal;
+    }
+
+    //返回地址及对应的value
+    function getgift() public view returns(address[],uint[]){
+        return (alladd,allvalue);
+    }
+
+}
+
+```
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1649 
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/340285367 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV12k4y1m7aH/ 
+
