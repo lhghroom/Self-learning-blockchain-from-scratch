@@ -1,0 +1,89 @@
+孤荷凌寒自学第170天区块链084天Dapp039
+
+【主要内容】
+今天继续学习实战，做一个真正的依托于智能合约的DAPP。今天继续独立完善一个众筹的合约。共耗时30分钟。
+（此外整理作笔记花费了约20分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+
+【还是没有成功解决去获取过去所有事件记录的问题】
+根据博文：
+今天自主思考并修改了昨天的前端函数：
+```
+            //取回包括历史事件记录在内的所有记录，当前 函数取回参与众筹的广播事件
+            function listenevent(){
+                try {
+                    //执行下面的语句时，会把getPastEvents当作合约中的函数处理，
+                    //但由于合约中根本没有这个函数，所以会报错，
+                    //http://cw.hubwiz.com/card/c/web3.js-1.0/1/4/15/
+                    var event=cc.FundTransfer();
+                    event.watch({filter:{
+                        //filter: {myIndexedParam: [20,23], myOtherIndexedParam: '0x123456789...'}, // Using an array means OR: e.g. 20 or 23
+                        fromBlock: 0,
+                        toBlock: 'latest'
+                    }}, function(error, events){
+                        document.getElementById("listenback").innerText=events;
+                    })
+                    //.then(function(events){
+                    //    document.getElementById("listenback").innerText=events;// same results as the optional callback above
+                    //});
+
+                } catch (error) {
+                    document.getElementById("listenback").innerText="监听失败：" + error;
+                }
+            }
+
+````
+之前启用
+.then(function(events){
+}
+代码块的时候，提示错误如下：
+错误提示如下 ：
+监听失败：TypeError: …….then(……) is not a function.
+
+【准备进一步学习以太坊dapp的制作】
+查询了相关文章，发现在以太坊网络上做基本的游戏app还是可能的。
+准备学习的文章：
+https://blog.csdn.net/bondsui/article/details/85755186
+https://github.com/bigsui/eth-game-tictactoe
+
+【第一次尝试了解另一个网络级区块链操作系统 EOS上的智能合约】
+发现其难度非常大，已了解的信息有：
+1.	在Linux系统下才能操作
+2.	合约编写语言为c或c++
+3.	部署开发环境非常困难
+相关博文：
+https://cloud.tencent.com/developer/news/389463
+https://www.jianshu.com/p/e61b2e0eada2
+https://blog.csdn.net/starzhou/article/details/80672516
+
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1557  
+
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/346556948 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1Bf4y197zi/ 
+
+
