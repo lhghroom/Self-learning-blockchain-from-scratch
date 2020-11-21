@@ -1,0 +1,243 @@
+孤荷凌寒自学第171天区块链085天Dapp040
+
+【主要内容】
+今天继续学习实战，开始做一个波菜类的DU大小的智能合约。共耗时31分钟。
+（此外整理作笔记花费了约40分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+
+【得到一个未知来历的波菜类dapp的合约代码】
+这个合约，原设计只能使用一次，一次参与投注后，就失效了。
+原文如下 ：
+```
+pragma solidity ^0.4.18;
+
+contract BetContract {
+
+    struct Result {
+        uint time; //开奖时间，管理客户端传递的时间
+        uint result; //开奖结果，1~6
+        uint odds; //赢一方的最终赔率，单位%
+    }
+
+    event LOG_NewBet(address playerAddress, uint amount);
+
+    uint private prevBlockNum; //开始时间
+    bool private isStopped; //合约是否已停止
+    bool private canBet; //是否可以投注
+    uint public profit;//盈利
+    address private owner; //创建者的地址
+    
+    address[] private addressBig; //所有压大的地址
+    address[] private addressSmall; //所有压小的地址
+    mapping(address => uint) private bigMap; //压大的map
+    mapping(address => uint) private smallMap; //压小的map
+    Result private lastResult; //开奖历史，只保留最近的1条
+    
+    modifier onlyIfNotStopped {
+        require(!isStopped);
+        _;
+    }
+    
+    modifier onlyCanBet {
+        require(canBet);
+        canBet = false;
+        _;
+        canBet = true;
+    }
+    
+    modifier onlyOwner {
+        require(msg.sender == owner);
+        _;
+    }
+    
+    function BetContract() public {
+        prevBlockNum = block.number;
+        isStopped = false;
+        canBet = true;
+        profit = 0;
+        owner = 0xEd5b17af63C775B2f1101af5AB064547B5E32C44;
+    }
+    
+    function() public payable {
+        bet(msg.data.length > 0);
+    }
+    
+    function bet(bool v) public payable {
+        require(canBet);
+        require(msg.value >= 10 finney);
+        address add = msg.sender;
+        uint value = msg.value;
+        if (v) {
+            bigMap[add] += value;
+            addAddress(add, addressBig);
+        } else {
+            smallMap[add] += value;
+            addAddress(add, addressSmall);
+        }
+        LOG_NewBet(add, value);
+    }
+    
+    function addAddress(address a, address[] storage addressArray) internal {
+        for (uint i = 0; i < addressArray.length; i ++ ) {
+            if (addressArray[i] == a) {
+                return;
+            }
+        }
+        addressArray.push(a);
+    }
+    
+    function myBet() public view returns (uint, uint) {
+        return (bigMap[msg.sender], smallMap[msg.sender]);
+    }
+    
+    //开奖
+    function result(uint seed) public payable onlyIfNotStopped onlyCanBet onlyOwner {
+        //1.查看是否满足开奖条件：a、合约未停止isStopped为false b、canBet为true c、双边都有人投注
+        require(addressBig.length > 0 && addressSmall.length > 0 );
+        //2.设置canBet为false
+        //3.开奖：a、获取随机数，大于等于3则为大，小于3为小 b、统计奖池总金额、获胜方总金额 c、按比例派发奖金
+        uint r = randomGen(seed);
+        bool big = r >= 3;
+        uint all = 0;//奖池总金额
+        uint winAll = 0;//获胜方总金额
+        for (uint i = 0; i < addressBig.length; i ++) {
+            uint b = bigMap[addressBig[i]];
+            all += b;
+            if (big) {
+                winAll += b;
+            }
+        }
+        for (i = 0; i < addressSmall.length; i ++) {
+            b = smallMap[addressSmall[i]];
+            all += b;
+            if (!big) {
+                winAll += b;
+            }
+        }
+        all = 99 * all / 100;
+        profit = all / 99;
+        lastResult = Result(seed, r + 1, all*100/winAll);
+        //c、按比例派发奖金
+        for (i = 0; i < addressBig.length; i ++) {
+            address k = addressBig[i];
+            b = bigMap[k];
+            uint jj =  all * b / winAll;
+            delete bigMap[k];
+            if (big) {
+                require (k.send(jj));
+            }
+        }
+
+        for (i = 0; i < addressSmall.length; i ++) {
+            k = addressSmall[i];
+            b = smallMap[k];
+            jj = all * b / winAll;
+            delete smallMap[k];
+            if (!big) {
+                require (k.send(jj));
+            }
+        }
+
+        delete addressBig;
+        delete addressSmall;
+        
+        //4.canBet设置为true
+    }
+    
+    function countBet() public view returns(uint, uint) {
+        return (addressBig.length, addressSmall.length);
+    }
+    
+    //提现
+    function getMoney() public payable onlyOwner {
+        owner.transfer(profit);
+    }
+    
+    function randomGen(uint seed) internal view returns (uint){
+        uint r = uint(keccak256(block.blockhash(block.number-1), seed ))%6;
+        return r;
+    }
+
+    function allBet() public view returns (uint, uint) {
+        uint bigAll = 0;
+        for (uint i = 0; i < addressBig.length; i ++) {
+            bigAll += bigMap[addressBig[i]];
+        }
+        uint smallAll = 0;
+        for (i = 0; i < addressSmall.length; i ++) {
+            smallAll += smallMap[addressSmall[i]];
+        }
+        return (bigAll, smallAll);
+    }
+
+    function getLastResult() public view returns (uint, uint, uint) {
+        return (lastResult.time,  lastResult.result,  lastResult.odds);
+    }
+}
+````
+
+【准备重写并升级此合约】
+这个合约很基础，准备先照着重写一次，以练习理解，随后准备将其独立升级，可以实现反复下注使用。
+今天已修改完成的情况：
+```
+pragma solidity ^0.4.25;
+
+contract dudaxiao{
+    //原合约是一次性合约，就是只能参与一次。
+    struct jilu{
+        uint time; //开奖时间
+        uint result; //开奖的那个数字 
+        uint peilv; //赢了一局后的赔率，这儿暂时没有理解
+    }
+
+    uint private createmeblocknumber; //创建合约时的以太坊网络区块高度
+    address private owner; //合约部署节点
+    bool private isstopthis; //是否已经停止本合约
+    bool private iscanxiaozhu; //是否可以下注，就是判断是否是一轮游戏的中间过程，原合约表示合约只使用一次，只投注一次即可。
+    unit private yingli; //赢利，这儿暂时没有理解
+
+    //---下面申明只存放一次参与过程参与节点信息的节点地址数组
+    address[] private addsmall; //所有押小的地址
+    address[] private addbig; //所有押大的地址
+
+    //--下面存放的是各参与节点押的金额的maping对象变量
+    
+
+
+
+
+}
+
+```
+
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1557  
+
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/346781609 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1Ut4y1D7hf/ 
+
+
