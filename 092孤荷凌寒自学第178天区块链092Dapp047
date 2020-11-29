@@ -1,0 +1,274 @@
+孤荷凌寒自学第178天区块链092Dapp047
+【主要内容】
+今天继续学习实战，开始做一个波菜类的猜大小的智能合约。共耗时29分钟。
+（此外整理作笔记花费了约30分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【今天继续完成合约的重写与批注】
+```
+pragma solidity ^0.4.25;
+
+contract dudaxiao{
+    //原合约是一次性合约，就是只能参与一次。
+    struct jilu{
+        uint time; //开奖时间
+        uint result; //开奖的那个数字 
+        uint peilv; //赢了一局后的赔率，这儿暂时没有理解
+    }
+
+    uint private createmeblocknumber; //创建合约时的以太坊网络区块高度
+    address private owner; //合约部署节点
+    bool private isstopthis; //是否已经停止本合约
+    bool private iscanxiazhu; //是否可以下注，就是判断是否是一轮游戏的中间过程，原合约表示合约只使用一次，只投注一次即可。
+    uint private yingli; //赢利，这儿暂时没有理解
+
+    //---下面申明只存放一次参与过程参与节点信息的节点地址数组
+    address[] private addsmall; //所有押小的地址
+    address[] private addbig; //所有押大的地址
+
+    //--下面存放的是各参与节点押的金额的maping对象变量 
+    //--就是说，下面的mapping记录下了每一个参与游戏的节点投注的金额
+    mapping(address => uint) private bigmap; //此mapping中记录了每一个压大的节点投注的金额
+    mapping(address => uint) private smallmap; //此mapping中记录了每一个压小的节点投注的金额
+
+    //定义记录此次（因为本合约只玩一次）游戏的开奖结果
+    jilu private r;
+
+    //下面开始定义函数修改器
+    //判断合约是否已经不再执行了（就是说已经不能再参与游戏了，游戏已经结束 ）
+    modifier onlyIfNotStopped{
+        require(isstopthis==false);
+        _;
+    }    
+
+    //判断合约是否允许下注，就是说现在还可以下注吗？
+    modifier canXiaZhu{
+        require(iscanxiazhu==true);
+        _;
+    }
+
+    //判断当前调用合约的节点是否是部署合约的节点
+    modifier onlyOwner{
+        require(msg.sender==owner);
+        _;
+    }
+
+    constructor() public{
+        //这是合约初始化函数，只在部署时执行一次的函数
+        //--记录下当前合约部署时的以太坊的块高度
+        createmeblocknumber=block.number; //当前块的Index
+        owner=msg.sender; //部署合约时的节点地址
+        isstopthis=false; //合约还没有停用
+        iscanxiazhu=true; //当前还可以下注
+        yingli=0;
+
+    }
+
+    //下面定义的是接收eth转入的两个函数
+    //回退函数来接收eth
+    function () public payable{
+        xiazhu(msg.data.length > 0); //如果发起转账交易时有数据，则认为是猜大
+    }
+
+    //专门的下注函数用以接收eth
+    function xiazhu(bool isda) public payable{
+        require(isstopthis == false);
+        require(iscanxiazhu == true);
+        //现在需要看一下，节点参与此游戏时，是否给足了猜注
+        uint v=msg.value; //这儿先获取到取得的金额，默认单位是wei
+        require(v >= 10 finney);
+        address a = msg.sender;
+        //判断是猜大，还是猜小
+        if(isda==true){
+            //如果是猜大
+            //添加到猜大的地址与金额对照表中
+            bigmap[a] += v; //这种写法意味着同一个节点可以多次下注
+            AddAddress(a,addbig);
+        }else{
+            //如果是猜小
+            smallmap[a] += v; //这种写法意味着同一个节点可以多次下注
+            AddAddress(a,addsmall);
+
+        }
+    }
+
+    function AddAddress(address a,address[] storage arr) internal {
+        //此函数的第二个形参arr，被声明为storage表示按地址传值（就是按指针传值）
+        //默认的形参都是指memory表示 按值传值。
+        //最后声明本函数的关键词为：internal，表示 可以被本身和子合约调用（在一个合约 调用另一个合约时，也需要声明为internal）
+        //因为形参中有storage关键词的，函数本身就必须被声明为internal或Private
+        //https://blog.csdn.net/liyuechun520/article/details/78408608
+        for(uint i = 0; i < arr.length; i ++){
+            if(arr[i]==a){
+                return; //如果数组中已经登记过这个节点地址了，那么，就不用再添加了
+            }
+        }
+        //如果上面没有从数组中，找到这个节点地址，那么就添加进数组
+        arr.push(a);
+
+    }
+
+    //开始开奖
+    function KaiJiang(uint seed) public payable onlyIfNotStopped canXiaZhu onlyOwner {
+        //seed形参接收一个随机数生成的种子数，用于生成伪随机数，模拟执色子
+        //三个函数修改器，限定，只有在合约还没有弃用，合约状态是还可以下猜注，当前调用合约 的是部署节点的三种情况下，才能调用此函数
+        //检测是不是既有人猜大，也有人猜小，如果是才能继续 ，不是的话，还不能开奖
+        uint i = 0;
+        uint v = 0;
+        uint jj = 0;
+        if(addbig.length <= 0 && addsmall.length <= 0){
+            //说明本次不能开奖
+            //退回猜注
+            if(addbig.length > 0){
+                for(i = 0; i < addbig.length; i ++){
+                    v = bigmap[addbig[i]]; //取出下注猜大的所有节点（当前i这个节点）的实际下注金额。
+                    addbig[i].transfer(v);
+                }
+            }
+            if(addsmall.length > 0){
+                for(i = 0; i < addsmall.length; i ++){
+                    v = smallmap[addsmall[i]]; //取出下注猜小的所有节点（当前i这个节点）的实际下注金额。
+                    addsmall[i].transfer(v);
+                }
+            }
+        }else{
+            //可以开奖
+            //获取随机数
+            uint saizi = ShengChengRandom(seed); //这儿生成 的是0-5（包含两端）的数，实际显示出去全部都 要加1
+            bool isda = saizi>=3; //于是这里的3,实际是4
+            uint intallvalue = 0; //所有下注节点总共下注的总金额，包括了猜 大的猜 小的。
+            uint intwinpartvalue = 0; //其中赢的那一方的节点总共下注了多少，便于按下注额进行分配奖金（即是所有下注总金额intallvalue扣除合约的平台抽水）
+            //现在统计当前下注的总金额和赢的一方的下注总金额
+            for(i = 0; i < addbig.length; i ++){
+                v = bigmap[addbig[i]]; //取出下注猜大的所有节点（当前i这个节点）的实际下注金额。
+                intallvalue += v; //所有下注金额都要增加到总下注金额中
+                if (isda==true){
+                    //如果是猜大的一方赢了，则计算赢方节点的下注总金额。
+                    intwinpartvalue += v;
+                }
+            }
+            for(i = 0; i < addsmall.length; i ++){
+                v = smallmap[addsmall[i]]; //取出下注猜小的所有节点（当前i这个节点）的实际下注金额。
+                intallvalue += v; //所有下注金额都要增加到总下注金额中
+                if (isda==false){
+                    //如果是猜小的一方赢了，则计算赢方节点的下注总金额。
+                    intwinpartvalue += v;
+                }
+            }
+            //合约地址本身抽水
+            yingli = intallvalue / 99;//抽水1%
+            //计算出剩余的实际总奖金
+            intallvalue = 99 * intallvalue / 100;
+            //登记开奖结果---
+            r = jilu(now,saizi+1,intallvalue * 100 / intwinpartvalue);
+            //上一句直接使用了建构体名称：jilu来添加记录
+            //三个成员分别是：开奖时间,色子数字，赔率
+            //开始向赢方分发奖金
+            if (isda==true){
+                //猜大的一方赢了
+                for(i = 0; i < addbig.length; i ++){
+                    v = bigmap[addbig[i]]; //取出下注猜大的所有节点（当前i这个节点）的实际下注金额。
+                    jj = intallvalue * (v / intwinpartvalue); //当前节点实际应得奖金
+                    addbig[i].transfer(jj); //发放奖金
+                }
+            }
+            if (isda==false){
+                //猜小的一方赢了
+                for(i = 0; i < addsmall.length; i ++){
+                    v = smallmap[addsmall[i]]; //取出下注猜大的所有节点（当前i这个节点）的实际下注金额。
+                    jj = intallvalue * (v / intwinpartvalue); //当前节点实际应得奖金
+                    addsmall[i].transfer(jj); //发放奖金
+                }
+            }
+        }
+
+    }
+
+    //生成一个随机数（0-5）
+    function ShengChengRandom(uint seed) internal view returns(uint){
+        //这个函数是供本合约内部调用的，所以使用了internal关键词
+        uint rr = uint(keccak256(blockhash(block.number-1), seed)) % 6;
+        return rr;
+
+    }
+
+    //返回当前调用合约的节点的总下注金额
+    function myXiaZhuValue() public view returns(uint,uint){
+        return (bigmap[msg.sender],smallmap[msg.sender]);
+        //返回的元组中，第一个是本节点猜大的金额，第二个是本节点猜小的金额
+    }
+
+    //返回本次游戏的总参与金额
+    function allDuZhu() public view returns(uint,uint){
+        //先分别汇总计算
+        uint intallbig = 0;
+        uint intallsmall = 0;
+        uint i = 0;
+        uint v = 0;
+
+        for(i = 0; i < addbig.length; i ++){
+            v = bigmap[addbig[i]]; //取出下注猜大的所有节点（当前i这个节点）的实际下注金额。
+            intallbig += v;
+        }
+
+        for(i = 0; i < addsmall.length; i ++){
+            v = smallmap[addsmall[i]]; //取出下注猜小的所有节点（当前i这个节点）的实际下注金额。
+            intallsmall += v; //所有下注金额都要增加到总下注金额中
+        }
+
+        return(intallbig,intallsmall);
+    }
+
+    //智能合约的部署节点取走合约平台抽水部分
+    function getYingLi() public payable onlyOwner returns(bool){
+        owner.transfer(yingli);
+    }
+    
+    //获取最后一次开奖（其实只有一次开奖）的开奖记录
+    function getKaiJiangInfo() public view returns(uint,uint,uint){
+        return(r.time,r.result,r.peilv);
+    }
+
+    //查询当前合约节点自己的余额
+    function getContractBalance() public view returns(uint){
+        return address(this).balance;
+    }
+
+
+
+}
+
+
+
+```
+
+
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1557  
+
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/349420247 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1aZ4y1K7hq/ 
+
+
