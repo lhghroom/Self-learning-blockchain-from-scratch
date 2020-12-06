@@ -1,0 +1,1072 @@
+孤荷凌寒自学第181天区块链096天Dapp051
+【主要内容】
+今天继续学习实战，继续完成一个菠菜类的DU大小的智能合约。共耗时35分钟。
+（此外整理作笔记花费了约22分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【今天对智能合约添加了新的方法，发布成功，测试失败】
+dudaxiao.sol现在的代码如下：
+```
+pragma solidity ^0.4.25;
+
+contract dudaxiao{
+    //原合约是一次性合约，就是只能参与一次。
+    struct jilu{
+        uint time; //开奖时间
+        uint result; //开奖的那个数字 
+        uint peilv; //赢了一局后的赔率，这儿暂时没有理解
+    }
+
+    uint private createmeblocknumber; //创建合约时的以太坊网络区块高度
+    address private owner; //合约部署节点
+    bool private isstopthis; //是否已经停止本合约
+    bool private iscanxiazhu; //是否可以下注，就是判断是否是一轮游戏的中间过程，原合约表示合约只使用一次，只投注一次即可。
+    uint private yingli; //赢利，这儿暂时没有理解
+
+    //---下面申明只存放一次参与过程参与节点信息的节点地址数组
+    address[] private addsmall; //所有押小的地址
+    address[] private addbig; //所有押大的地址
+    uint[] private valuesmall;
+    uint[] private valuebig;
+
+    //--下面存放的是各参与节点押的金额的maping对象变量 
+    //--就是说，下面的mapping记录下了每一个参与游戏的节点投注的金额
+    mapping(address => uint) private bigmap; //此mapping中记录了每一个压大的节点投注的金额
+    mapping(address => uint) private smallmap; //此mapping中记录了每一个压小的节点投注的金额
+
+    //定义记录此次（因为本合约只玩一次）游戏的开奖结果
+    jilu private r;
+
+    //下面开始定义函数修改器
+    //判断合约是否已经不再执行了（就是说已经不能再参与游戏了，游戏已经结束 ）
+    modifier onlyIfNotStopped{
+        require(isstopthis==false);
+        _;
+    }    
+
+    //判断合约是否允许下注，就是说现在还可以下注吗？
+    modifier canXiaZhu{
+        require(iscanxiazhu==true);
+        _;
+    }
+
+    //判断当前调用合约的节点是否是部署合约的节点
+    modifier onlyOwner{
+        require(msg.sender==owner);
+        _;
+    }
+
+    constructor() public{
+        //这是合约初始化函数，只在部署时执行一次的函数
+        //--记录下当前合约部署时的以太坊的块高度
+        createmeblocknumber=block.number; //当前块的Index
+        owner=msg.sender; //部署合约时的节点地址
+        isstopthis=false; //合约还没有停用
+        iscanxiazhu=true; //当前还可以下注
+        yingli=0;
+
+    }
+
+    //下面定义的是接收eth转入的两个函数
+    //回退函数来接收eth
+    function () public payable{
+        xiazhu(msg.data.length > 0); //如果发起转账交易时有数据，则认为是赌大
+    }
+
+    //专门的下注函数用以接收eth
+    function xiazhu(bool isda) public payable{
+        require(isstopthis == false);
+        require(iscanxiazhu == true);
+        //现在需要看一下，节点参与此游戏时，是否给足了赌注
+        uint v = msg.value; //这儿先获取到取得的金额，默认单位是wei
+        require(v >= 10 finney);
+        address a = msg.sender;
+        //判断是赌大，还是赌小
+        if(isda==true){
+            //如果是赌大
+            //添加到赌大的地址与金额对照表中
+            bigmap[a] += v; //这种写法意味着同一个节点可以多次下注
+            AddAddress(v,a,valuebig,addbig);
+        }else{
+            //如果是赌小
+            smallmap[a] += v; //这种写法意味着同一个节点可以多次下注
+            AddAddress(v,a,valuesmall,addsmall);
+
+        }
+    }
+
+    function AddAddress(uint v,address a,uint[] storage arrv,address[] storage arra) internal {
+        //此函数的第二个形参arr，被声明为storage表示按地址传值（就是按指针传值）
+        //默认的形参都是指memory表示 按值传值。
+        //最后声明本函数的关键词为：internal，表示 可以被本身和子合约调用（在一个合约 调用另一个合约时，也需要声明为internal）
+        //因为形参中有storage关键词的，函数本身就必须被声明为internal或Private
+        //https://blog.csdn.net/liyuechun520/article/details/78408608
+        if (arra.length>0){
+            for(uint i = 0; i < arra.length; i ++){
+                if(arra[i]==a){
+                    arrv[i] += v; //增加资金记录
+                    return; //如果数组中已经登记过这个节点地址了，那么，就不用再添加了
+                }
+            }
+        }
+        //如果上面没有从数组中，找到这个节点地址，那么就添加进数组
+        arra.push(a);
+        arrv.push(v); //记录下对应的值
+
+    }
+
+
+    //开始开奖
+    function KaiJiang(uint seed) public payable onlyIfNotStopped canXiaZhu onlyOwner {
+        //seed形参接收一个随机数生成的种子数，用于生成伪随机数，模拟执色子
+        //三个函数修改器，限定，只有在合约还没有弃用，合约状态是还可以下赌注，当前调用合约 的是部署节点的三种情况下，才能调用此函数
+        //检测是不是既有人赌大，也有人赌小，如果是才能继续 ，不是的话，还不能开奖
+        uint i = 0;
+        uint v = 0;
+        uint jj = 0;
+        if(addbig.length <= 0 || addsmall.length <= 0){
+            //说明本次不能开奖
+            //退回赌注
+            if(addbig.length > 0){
+                for(i = 0; i < addbig.length; i ++){
+                    v = bigmap[addbig[i]]; //取出下注赌大的所有节点（当前i这个节点）的实际下注金额。
+                    addbig[i].transfer(v);
+                }
+            }
+            if(addsmall.length > 0){
+                for(i = 0; i < addsmall.length; i ++){
+                    v = smallmap[addsmall[i]]; //取出下注赌小的所有节点（当前i这个节点）的实际下注金额。
+                    addsmall[i].transfer(v);
+                }
+            }
+        }else{
+            //可以开奖
+            //获取随机数
+            uint saizi = ShengChengRandom(seed); //这儿生成 的是0-5（包含两端）的数，实际显示出去全部都 要加1
+            bool isda = saizi>=3; //于是这里的3,实际是4
+            uint intallvalue = 0; //所有下注节点总共下注的总金额，包括了赌 大的赌 小的。
+            uint intwinpartvalue = 0; //其中赢的那一方的节点总共下注了多少，便于按下注额进行分配奖金（即是所有下注总金额intallvalue扣除合约的平台抽水）
+            //现在统计当前下注的总金额和赢的一方的下注总金额
+            for(i = 0; i < addbig.length; i ++){
+                v = bigmap[addbig[i]]; //取出下注赌大的所有节点（当前i这个节点）的实际下注金额。
+                intallvalue += v; //所有下注金额都要增加到总下注金额中
+                if (isda==true){
+                    //如果是赌大的一方赢了，则计算赢方节点的下注总金额。
+                    intwinpartvalue += v;
+                }
+            }
+            for(i = 0; i < addsmall.length; i ++){
+                v = smallmap[addsmall[i]]; //取出下注赌小的所有节点（当前i这个节点）的实际下注金额。
+                intallvalue += v; //所有下注金额都要增加到总下注金额中
+                if (isda==false){
+                    //如果是赌小的一方赢了，则计算赢方节点的下注总金额。
+                    intwinpartvalue += v;
+                }
+            }
+            //合约地址本身抽水
+            yingli = intallvalue / 99;//抽水1%
+            //计算出剩余的实际总奖金
+            intallvalue = 99 * intallvalue / 100;
+            //登记开奖结果---
+            r = jilu(now,saizi+1,intallvalue * 100 / intwinpartvalue);
+            //上一句直接使用了建构体名称：jilu来添加记录
+            //三个成员分别是：开奖时间,色子数字，赔率
+            //开始向赢方分发奖金
+            if (isda==true){
+                //赌大的一方赢了
+                for(i = 0; i < addbig.length; i ++){
+                    v = bigmap[addbig[i]]; //取出下注赌大的所有节点（当前i这个节点）的实际下注金额。
+                    jj = intallvalue * (v / intwinpartvalue); //当前节点实际应得奖金
+                    addbig[i].transfer(jj); //发放奖金
+                }
+            }
+            if (isda==false){
+                //赌小的一方赢了
+                for(i = 0; i < addsmall.length; i ++){
+                    v = smallmap[addsmall[i]]; //取出下注赌大的所有节点（当前i这个节点）的实际下注金额。
+                    jj = intallvalue * (v / intwinpartvalue); //当前节点实际应得奖金
+                    addsmall[i].transfer(jj); //发放奖金
+                }
+            }
+        }
+
+    }
+
+    //生成一个随机数（0-5）
+    function ShengChengRandom(uint seed) internal view returns(uint){
+        //这个函数是供本合约内部调用的，所以使用了internal关键词
+        uint rr = uint(keccak256(blockhash(block.number-1), seed)) % 6;
+        return rr;
+
+    }
+
+    //返回当前调用合约的节点的总下注金额
+    function myXiaZhuValue() public view returns(uint,uint){
+        return (bigmap[msg.sender],smallmap[msg.sender]);
+        //返回的元组中，第一个是本节点赌大的金额，第二个是本节点赌小的金额
+    }
+
+    //返回本次游戏的总参与金额
+    function allDuZhu() public view returns(uint,uint){
+        //先分别汇总计算
+        uint intallbig = 0;
+        uint intallsmall = 0;
+        uint i = 0;
+        uint v = 0;
+
+        for(i = 0; i < addbig.length; i ++){
+            v = bigmap[addbig[i]]; //取出下注赌大的所有节点（当前i这个节点）的实际下注金额。
+            intallbig += v;
+        }
+
+        for(i = 0; i < addsmall.length; i ++){
+            v = smallmap[addsmall[i]]; //取出下注赌小的所有节点（当前i这个节点）的实际下注金额。
+            intallsmall += v; //所有下注金额都要增加到总下注金额中
+        }
+
+        return(intallbig,intallsmall);
+    }
+
+    //智能合约的部署节点取走合约平台抽水部分
+    function getYingLi() public payable onlyOwner returns(bool){
+        owner.transfer(yingli);
+    }
+
+    //--合约部署节点在合约执行失败的情况下，取回合约所在地址的全部余额。
+    function getallbalance() public payable onlyOwner returns(bool){
+        owner.transfer(address(this).balance);
+    }
+    
+    //获取最后一次开奖（其实只有一次开奖）的开奖记录
+    function getKaiJiangInfo() public view returns(uint,uint,uint){
+        return(r.time,r.result,r.peilv);
+    }
+
+    //查询当前合约节点自己的余额
+    function getContractBalance() public view returns(uint){
+        return address(this).balance;
+    }
+
+    //查询所有赌大的节点的地址与下注金额
+    function getallbigaddressandvalue() public view returns(address[],uint[]){
+        return(addbig,valuebig);
+    }
+
+    //查询所有赌小的节点的地址与下注金额
+    function getallsmalladdressandvalue() public view returns(address[],uint[]){
+        return(addsmall,valuesmall);
+    }
+
+    //查询指定的节点已经下注了多少eth
+    function getxiazhuvaluefrom(address a) public view returns(uint,uint){
+        return (bigmap[a],smallmap[a]);
+    }
+
+}
+
+//此博文对solidity讲得比较好
+//https://www.jianshu.com/p/5ca861cce245
+
+
+```
+
+【对应的修改了dudaxiao.html页面Js代码，没有作测试】
+完成的代码如下：
+```
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>DU da xiao</title>
+    <script language="javascript" type="text/javascript" src="jquery.min.js"></script>
+    <script language="javascript" type="text/javascript" src="web3.min.js"></script>
+    <!-- 1. Include cryptozombies_abi.js here -->
+    <script language="javascript" type="text/javascript" src="dudaxiao_abi.js"></script>
+
+    <script>
+// 格式化日期，如月、日、时、分、秒保证为2位数
+function formatNumber (n) {
+    n = n.toString()
+    return n[1] ? n : '0' + n;
+}
+// 参数number为毫秒时间戳，format为需要转换成的日期格式
+function formatTime (number, format) {
+    let time = new Date(number)
+    let newArr = []
+    let formatArr = ['Y', 'M', 'D', 'h', 'm', 's']
+    newArr.push(time.getFullYear())
+    newArr.push(formatNumber(time.getMonth() + 1))
+    newArr.push(formatNumber(time.getDate()))
+
+    newArr.push(formatNumber(time.getHours()))
+    newArr.push(formatNumber(time.getMinutes()))
+    newArr.push(formatNumber(time.getSeconds()))
+
+    for (let i in newArr) {
+        format = format.replace(formatArr[i], newArr[i])
+    }
+    return format;
+}
+
+            //声明一些钱包地址：
+            //下面一行定义的是部署合约的节点（创世节点）的信息，公钥
+            var wallet_address="0x5227C3EF48B5A1bcF784593e46D9579D26a3b592"; //狐狸钱包的公钥，就是钱包地址，是eth网络上的一个节点。
+            //下面一行定义的是节点2的信息
+            var w2add="0xe2d6c2f289c53B5aEA44C47293Ba179a3bfa21f0"; //公钥
+    
+            //下面一行定义的是节点3 的信息
+            var w3add="0xb40599fB0366DCf0ffe86677b005b3f20Dfa29aE"; //公钥
+    
+            //下面一行定义的是节点4 的信息
+            var w4add="0x70c8461366d5368B1E79CBFc2Acf4ba56C745977"; //公钥
+    
+    
+   
+            // 2. Start code here
+            var cc;
+            var web3;
+
+            //var heyueAddress = "0x833Efb0B28AeD4C6510906fac12Deb60d98D1C23"; //这个合约地址不返回合约代币。要连接的众筹ico合约地址
+            //var heyueAddress = "0xC5b33d4ca2Cf2dF9bCeD7491dFa791a9546bEE2c"; //这个合约地址是要返回ci代币的
+            //var heyueAddress = "0xa0C369A8E08E5bD17401CC612d453f883cbDed16"; //这个合约是最后发布的ico众筹合约，事件广播完整
+            //var heyueAddress = "0x794155739d9E18a0Ca9c133f99b11E467597D4EB"; //这个合约是保证返回的ci最后至少有一个ci
+            //var heyueAddress='0xC56E6CcAC9b0fEc59eCbe18059d615690B0d740c';
+            //var heyueAddress='0x7a2559F23E056F39e844a465600EB605C4E3AEaB';
+            //var heyueAddress='0x673795F0fe831CDf3C09abed911c3933d60B6C66';
+            //----下面是赌大小的合约地址
+            var heyueAddress='0x5798e6F6081a07ECaBd691Fc4fe50E666BeA577C';
+
+            function startApp() {
+                try {
+                    $("#contractaddress").html(heyueAddress);
+                    var ccc=web3.eth.contract(zongchouABI);
+                    cc=ccc.at(heyueAddress); //https://www.cnblogs.com/tinyxiong/p/9046626.html
+                    //cc =new web3.eth.contract(cryptozombiesABI, cryptoZombiesAddress); //如果是另一个版本可能还得加上new关键字。
+                    $("#firstinfo").html("连接上合约！")
+                    //alert(typeof cc);
+                    web3.eth.getAccounts(function (err, accounts) {
+                            if (accounts.length == 0) {
+                                $("#firstinfo").html("请检查钱包是否解锁");
+                            }else{
+                                $("#accountsinfo").html("获取的默认钱包地址：" + web3.eth.defaultAccount);
+                                //getCurGift();
+                            }
+                        });
+    
+                } catch (err) {
+                    alert(err);
+                }
+                $("#firstinfo").html("加载成功");
+                
+            }
+    
+            //async () => 
+
+        //现在这种通过we3.min.js来加载钱包连接的方法，在metamask钱包和麦子钱包中都测试通过。
+        window.addEventListener('load',function() {
+        try{
+            if (typeof web3 !== 'undefined') {
+                web3 = new Web3(web3.currentProvider);
+                startApp();
+            } else {
+                //$('#app_loading').hide();
+                //alert(jQuery.i18n.prop('lrn_error_alert'));
+                //mathWallet.closePage();
+                alert("这儿没有钱包环境。");
+            }
+
+        }catch(err){
+            alert(err);
+        }
+        });
+
+    
+            //----------------下面是自定义的与合约交互的函数-------------------------
+            //--查询押大和押小各自的金额---
+            function gettotal(){
+                try{
+                    cc.allDuZhu(function(error, result){  //https://www.jianshu.com/p/15ff9da4dd8d
+                    if(!error)
+                    {
+                        var da=result[0];
+                        var xi=result[1];
+                        var intda=da / (10**18);
+                        var intxi=xi / (10**18); 
+                        $("#total").html("目前押大金额：" + intda + " ether" + "押小金额：" + intxi + "总赌资：" + (intda + intxi));
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#total").html('获取出错：' + error);
+                    }});
+                    //return "ok"
+                    $("#total").html('正在获取。。。');
+                }catch(err){
+                    $("#total").html('出错 ：' + err);
+                }
+            }
+
+            //--查询总金额---
+            function gettotal2(){
+                try{
+                    cc.getContractBalance(function(error, result){  //https://www.jianshu.com/p/15ff9da4dd8d
+                    if(!error)
+                    {
+                        var fln=result / (10**18);
+
+                        $("#total2").html("合约地址代币余额：" + fln + " ether");
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#total2").html('获取出错：' + error);
+                    }});
+                    //return "ok"
+                    $("#total2").html('正在获取。。。');
+                }catch(err){
+                    $("#total2").html('出错 ：' + err);
+                }
+            }
+    
+
+            //查询最后一次开奖记录
+            function getEndTimeStamp(){
+                try{
+                    cc.getKaiJiangInfo(function(error, result){
+                        if(!error)
+                    {
+                        t=formatTime(result[0] * 1000,"Y-M-D h:m:s");
+                        var r=result[1];//中奖号码
+                        var fpl=result[2]; //赔率
+                        $("#endtime").html("最后一次开奖时间：" + t + "开奖号码:" + r + "赔率" + fpl);
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#endtime").html('获取出错：' + error);
+                    }});
+                    //return "ok"
+                    $("#endtime").html('正在获取。。。');
+                }catch(err){
+                    alert("使用授权代币转移时出错 ：" + err)
+                    return err;
+                }
+            }
+
+            //查询我自己的下注金额
+            function myXiaZhuValue(){
+                try{
+                    cc.myXiaZhuValue(function(error, result){
+                    if(!error)
+                    {
+                        //result本身就是一个数组对象。
+                        var da=result[0];
+                        var xi=result[1];
+                        var intda=da / (10**18);
+                        var intxi=xi / (10**18); 
+                        $("#alladdress").html("我目前参与押大金额：" + intda + " ether" + "押小金额：" + intxi + "总赌资：" + (intda + intxi));
+                       //alert(result);
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#alladdress").html('获取出错：' + error);
+                    }});
+                    //return "ok"
+                    $("#alladdress").html('正在获取。。。');
+                }catch(err){
+                    alert("查询所有已参与节点时出错：" + err)
+                    return err;
+                }
+            }
+
+            //查询已参与节点的总数---
+            function getAddressCount(){
+                try{
+                    cc.getGiftCount(function(error, result){
+                        if(!error)
+                    {
+                        
+                        $("#addresscount").html("参与众筹的节点有" + result + "个");
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#addresscount").html('获取出错：' + error);
+                    }});
+                    //return "ok"
+                    $("#addresscount").html('正在获取。。。');
+                }catch(err){
+                    alert("查询所有已参与节点总数时出错：" + err)
+                    return err;
+                }
+            }
+
+            //查询所有压大的节点与对应的金额
+            function getallgiftandvalue(){
+                try {
+                    cc.getallbigaddressandvalue(function(error, result){
+                    if(!error)
+                    {
+                        //result本身就是一个数组对象。
+                        //alert(result.length);
+
+                        if(result.length>1){
+                            var adds=result[0];
+                            var vs=result[1];
+                            //alert(adds.length);
+                            //alert(vs.length);
+                            var strls="";
+                            var fln=0.0;
+                            for(i=0;i<adds.length;i++){
+                                if(i>0){
+                                    fln=(vs[i] - 0.0)/(10**18);
+                                    strls=strls + "<br />" + adds[i] + " 压大:" + fln + "ether;";
+                                }
+                            }
+                            $("#bigalladdressandvalue").html(strls);
+                        }else{
+                            $("#bigalladdressandvalue").html("获取到的结果不完整。")
+                        }
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#bigalladdressandvalue").html('获取出错：' + error);
+                    }});
+                    //return "ok"
+                    $("#bigalladdressandvalue").html('正在获取。。。');
+                } catch (error) {
+                    alert("在查询所有押大节点与对应下注金额对照关系时出错：" + error)
+                }
+            }
+
+            //查询所有压小的节点与对应的金额
+            function getallgiftandvalue2(){
+                try {
+                    cc.getallsmalladdressandvalue()(function(error, result){
+                    if(!error)
+                    {
+                        //result本身就是一个数组对象。
+                        //alert(result.length);
+
+                        if(result.length>1){
+                            var adds=result[0];
+                            var vs=result[1];
+                            //alert(adds.length);
+                            //alert(vs.length);
+                            var strls="";
+                            var fln=0.0;
+                            for(i=0;i<adds.length;i++){
+                                if(i>0){
+                                    fln=(vs[i] - 0.0)/(10**18);
+                                    strls=strls + "<br />" + adds[i] + " 压小:" + fln + "ether;";
+                                }
+                            }
+                            $("#smallalladdressandvalue").html(strls);
+                        }else{
+                            $("#smallalladdressandvalue").html("获取到的结果不完整。")
+                        }
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#smallalladdressandvalue").html('获取出错：' + error);
+                    }});
+                    //return "ok"
+                    $("#smallalladdressandvalue").html('正在获取。。。');
+                } catch (error) {
+                    alert("在查询所有押大节点与对应下注金额对照关系时出错：" + error)
+                }
+            }
+            
+
+            //查询指定节点地址的参与众筹金额
+            function getAddressGift(a){
+                try {
+                    cc.getGiftBalanceFrom(a,function(error, result){
+                        if(!error)
+                    {
+                        //alert(result); 
+                        var fln=result / (10**18);
+                        $("#address").html("此节点共参与众筹：" + fln + "ether");
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#addresscount").html('获取出错：' + error);
+                    }});
+                    $("address").html('正在获取... ...');
+                } catch (error) {
+                    alert("查询指定节点已众筹金额时出错 ：" + error);
+                    return error;
+                }
+            }
+
+            //---查询当前默认节点地址自己的参与众筹金额：
+            function getCurGift(){
+                try {
+                    cc.getGiftBalance(function(error, result){
+                        if(!error)
+                    {
+                        //alert(result); 
+                        var fln=result / (10**18);
+                        $("#curinfo").html("共参与众筹：" + fln + "ether");
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#curinfo").html('具体参与金额获取出错：' + error);
+                    }});
+                    $("#curinfo").html('正在获取... ...');
+
+                    //-------------------
+                    cc.getgoal(function(error, result){
+                        if(!error)
+                    {
+                        //alert(result); 
+                        var fln=result / (10**18);
+                        $("#goal").html("目标众筹总量：" + fln + "ether");
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#goal").html('获取目标众筹总量出错：' + error);
+                    }});
+                    $("#goal").html('正在获取... ...');
+
+
+
+                } catch (error) {
+                    alert("查询当前节点已众筹金额时出错 ：" + error);
+                    return error;
+                }
+            }
+
+            //参与下注，这儿默认为赌大---
+            function dodate(intvalue){
+                //alert(intvalue);
+                try{
+                    web3.eth.getTransactionCount(web3.eth.defaultAccount,function(err,res){
+                        if(!err){
+                            //alert(res);
+                            var message = {to:heyueAddress,value:web3.toWei(intvalue,'ether'),'chainId': 3,'gas': 300000,'gasPrice': web3.toWei('40', 'gwei'),'nonce': res};
+                            //cc.donate(message,function(err, res){ //使用这行所示方法，交易可以发起，但无法成功完成
+                            //使用下一行的方法，执行成功
+                            //这儿下注，默认就为赌大---
+                            cc.xiazhu.sendTransaction(true,message,function(err, res){
+                                var output = "";
+                                if (!err) {
+                                    output += res;
+                                } else {
+                                    output = err;
+                                }
+                                listendonate();
+                                document.getElementById('donateback').innerHTML = "返回信息：Transaction response= " + output + "<br />";
+                            });
+                            return "ok";
+                        }else{
+                            alert(err);
+                        }
+                    }); 
+                    document.getElementById('donateback').innerHTML = "操作执行中...";
+                }catch(err){
+                    alert('执行参与下注出错：' + err);
+                    document.getElementById('donateback').innerHTML = "执行失败：Transaction response= " + output + "<br />";
+                    return err;
+                }
+            }
+
+            //取回自己的金额----
+            function getmygiftback(){
+                try {
+                    cc.withdraw(function(error, result){
+                        if(!error)
+                    {
+                        
+                        $("#getback").html("操作完成。" + result);
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#getback").html('操作失败：' + error);
+                    }});
+                    //return "ok"
+                    $("#getback").html('正在操作。。。');
+                } catch (error) {
+                    alert("尝试取回自己的参与众筹金额的份额时出错 ：" + error)
+                }
+            }
+
+            //部署合约节点取走平台赢利
+            function getdraw(){
+                try {
+                    cc.getYingLi(function(error, result){
+                        if(!error)
+                    {
+                        
+                        $("#getdoback").html("操作完成。" + result);
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#getdoback").html('操作失败：' + error);
+                    }});
+                    //return "ok"
+                    $("#getdoback").html('正在操作。。。');
+                } catch (error) {
+                    alert("尝试取走众筹款项时出错 ;" + error)
+                }
+            }
+
+            //监听当前 次的众筹事件
+            function listendonate(){
+                try {
+                    document.getElementById('donateback').innerText="事件结果监听中......";
+                    //------------------------------------------
+                    var event=cc.FundTransfer();
+                    event.watch(function(error,result){
+                        if(!error){
+                            var strls="";
+                            var strls2="";
+                            for(let key in result){
+                               strls=strls + key + " : " + result[key] + "; ";
+                            }
+                            //https://me.tryblockchain.org/blockchain-solidity-event.html
+                            try {
+                                var fl=0.0;
+                                try {
+                                    fl=(result.args.amount - 0) / (10 ** 18);
+                                } catch (error) {
+                                    fl=0.0
+                                }
+                                var strls3=result.args.amount + "wei";
+                                if(fl!=0.0){
+                                    strls3=fl.toString + "ether"
+                                }
+                                strls2="参与众筹金额：" + strls3 + ",得到的代币CI金额" + result.args.backci + "ci.";
+                            } catch (error) {
+                                strls2="具体事件参数信息未能获取到：" + error;
+                            }
+
+                            document.getElementById('donateback').innerHTML=strls + "<br />" + strls2;
+                        }else{
+                           document.getElementById('donateback').innerText=error;
+                        }
+                    })
+
+                    /*
+                        下面是接收到的返回事件监控信息：
+                        address : 0x7a2559f23e056f39e844a465600eb605c4e3aeabblockHash : 0xfab4a6bc95c9aa41fc688e89a87023b124fd581c6bd680226ab08b3d883002ebblockNumber : 6459690logIndex : 1removed : falsetransactionHash : 0xdcd4b44f01fce402ac56ec22be5d6ba479195a48db3ea8082382b4cea81af856transactionIndex : 0event : FundTransferargs : [object Object]
+undefined,1000000000000000,100,100000000000000000000,100,100000 
+
+                    */
+
+                    //上面的写法成功，但只能监听当前 一次事件
+
+                    /*
+                        注意参照以下代码：
+                        instructorEvent.watch(function(error, result) {
+                            if (!error)
+                                {
+                                    $("#info").html(result.args.name + ' (' + result.args.age + ' years old)');
+                                } else {
+                                    console.log(error);
+                                }
+                        });
+                    */
+
+                    //下面这种写法报错
+                    //var myEvent = cc.events.FundTransfer({
+                    //    filter: {myIndexedParam: [20,23], myOtherIndexedParam: '0x123456789...'}, // Using an array means OR: e.g. 20 or 23
+                    //                fromBlock: 0
+                    //                },
+                    //    fromBlock: 0
+                    //}, function(error, event){})
+                    //.on('data', function(event){
+                    //    document.getElementById("listenback").innerText=event; // same results as the optional callback above
+                    //})
+                    //.on('changed', function(event){
+                    //        // remove event from local database
+                    //})        
+                    //.on('error', console.error);
+
+                    
+                } catch (error) {
+                    document.getElementById('donateback').innerText="监听事件错误：" + error;
+                }
+            }
+
+            //取回合约地址上多余的ci代币
+            function getciback(){
+                try {
+                    cc.getbackci(function(error, result){
+                        if(!error)
+                    {
+                        
+                        $("#getciback").html("操作完成。" + result);
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#getciback").html('操作失败：' + error);
+                    }});
+                    //return "ok"
+                    $("#getciback").html('正在操作。。。');
+                } catch (error) {
+                    document.getElementById('getciback').innerText="尝试取回合约地址上剩余的ci代币时失败：" + error;
+                }
+            }
+
+            //取回包括历史事件记录在内的所有记录，当前 函数取回参与众筹的广播事件
+            function listenevent(){
+                try {
+                    //执行下面的语句时，会把getPastEvents当作合约中的函数处理，
+                    //但由于合约中根本没有这个函数，所以会报错，
+                    //http://cw.hubwiz.com/card/c/web3.js-1.0/1/4/15/
+                    var event=cc.FundTransfer();
+                    event.watch({filter:{
+                        //filter: {myIndexedParam: [20,23], myOtherIndexedParam: '0x123456789...'}, // Using an array means OR: e.g. 20 or 23
+                        fromBlock: 0,
+                        toBlock: 'latest'
+                    }}, function(error, events){
+                        document.getElementById("listenback").innerText=events;
+                    })
+                    //.then(function(events){
+                    //    document.getElementById("listenback").innerText=events;// same results as the optional callback above
+                    //});
+
+                } catch (error) {
+                    document.getElementById("listenback").innerText="监听失败：" + error;
+                }
+            }
+
+            //--------------------------调用测试---------------------------------------
+            //--查询total包含押大的和押小的，接收两个返回值
+            function cmdone_click(){
+                try{
+                    gettotal();
+                }catch(err){
+                    alert(err);
+                }
+            }
+
+            //--查询total2
+            function cmdone2_click(){
+                try{
+                    gettotal2();
+                }catch(err){
+                    alert(err);
+                }
+            }
+    
+            //--查询最后一次开奖记录----
+            function cmdtwo_click(){
+                try{
+                    getEndTimeStamp();
+                }catch(err){
+                    alert(err);
+                }
+            }
+
+            //--查询我自己（当前节点）的下注情况---
+            function cmdthree_click(){
+                try{
+                    myXiaZhuValue();
+                }catch(err){
+                    alert(err);
+                }
+            }
+
+            //--查询已参与节点总数--
+            function cmdfoure_click(){
+                try{
+                    getAddressCount();
+                }catch(err){
+                    alert(err);
+                }
+            }
+
+            //--查询指定节点的参与总金额---
+            function cmdfive_click(){
+                try{
+                    var v=document.getElementById("txtaddress").value;
+                    if(v.length<=0){
+                        alert("请先输入要查询的节点地址");
+                    }else{
+                        getAddressGift(v);
+                    }
+                    
+                }catch(err){
+                    alert(err);
+                }
+            }
+
+            //--查询所有押大的节点与下注金额
+            function cmdsix_click(){
+                try {
+                    getallgiftandvalue();
+                } catch (error) {
+                    alert(error);
+                }
+            }
+
+            //--下注-------------
+            function cmddonate_click(){
+                try{
+                    var strls=document.getElementById("txtvalue").value;
+                    //alert(strls);
+                    if(/^[0-9]+\.?[0-9]+?$/.test(strls)){
+                        var fls=parseFloat(strls);
+                        //var intls=fls * (10**18);
+                        //alert(fls);
+                        k=dodate(fls);
+                    }else{
+                        alert('只能输入数字');
+                    }
+                }catch(err){
+                    alert("操作失败：" + err);
+                }
+            }
+
+            //---参与众筹都取回自己的参与金额---
+            function cmdgetback_click(){
+                try {
+                    getmygiftback();
+                } catch (error) {
+                    alert("操作失败：" + error);
+                }
+            }
+
+            //众筹发起者取走成功众筹的金额
+            function cmddo_click(){
+                try {
+                    getdraw();
+                } catch (error) {
+                    alert("操作失败：" + error)   
+                }
+            }
+
+            //监听众筹事件
+            function cmdlisten_click(){
+                try {
+                    document.getElementById("listenback").innerText="开始监听";
+                    listenevent();
+                } catch (error) {
+                    alert("操作失败：" + error);
+                }
+            }
+
+            //由部署合约的节点去取回合约中剩余的CI代币
+            function cmdgetciback_click(){
+                try {
+                    getciback();
+                } catch (error) {
+                    alert("操作失败：" + error)
+                }
+            }
+
+    
+        </script>
+        
+</head>
+<body>
+    <div>
+        <p>
+            BoCai合约地址：
+        </p>
+        <p id="contractaddress" name="contractaddress">
+
+        </p>
+        <p id="goal" name="goal">
+
+        </p>
+
+        <p id="firstinfo" name="firstinfo">
+
+        </p>
+
+        <p id="accountsinfo" name="accountsinfo">
+
+        </p>
+        <p id="curinfo" name="curinfo">
+
+        </p>
+    
+    </div>
+    <div>
+        <input type="button" value="查询当前押大和押小的金额" id="cmdone" name="cmdone" onclick="cmdone_click();" />
+        <span id="total" name="total"></span>
+        <br /><br />
+        <input type="button" value="查询当前合约地址拥有的eth总金额" id="cmdone2" name="cmdone2" onclick="cmdone2_click();" />
+        <span id="total2" name="total2"></span>
+        <br /><br />
+        <input type="button" value="查询最后一次开奖记录" id="cmdtwo" name="cmdtwo" onclick="cmdtwo_click();" />
+        <span id="endtime" name="endtime"></span>
+        <br /><br />
+        <input type="button" value="查询我的下注情况" id="cmdthree" name="cmdthree" onclick="cmdthree_click();" />
+        <span id="alladdress" name="alladdress"></span>
+        <br /><br />
+        <input type="button" value="查询所有押大的节点和金额" id="cmdsix" name="cmdsix" onclick="cmdsix_click();" />
+        <span id="bigalladdressandvalue" name="bigalladdressandvalue"></span>
+        <br /><br />
+        <input type="button" value="查询所有押小的节点和金额" id="cmdfoure" name="cmdfoure" onclick="cmdfoure_click();" />
+        <span id="smallalladdressandvalue" name="smallalladdressandvalue"></span>
+        <br /><br />
+        <input type="button" value="查询指定节点参与金额" id="cmdfive" name="cmdfive" onclick="" />
+        <br />
+        <input type="text" value="" id="txtaddress" name="txtaddress" style="width:200px;" />
+        <br />
+        <span id="address" name="address"></span>
+        <br /><br />
+        <input type="button" value="我要下赌注" id="cmddo" name="cmddo" onclick="cmddonate_click();" />
+        <input type="text" value="0.001" id="txtvalue" name="txtvalue" />eth
+        <br />
+        <span id="donateback" name="donateback"></span>
+        <br /><br />
+        <input type="button" value="开奖" id="cmdgetback" name="cmdgetback" onclick="cmdgetback_click();" />
+        <span id="getback" name="getback">在满足条件时才能开奖。</span>
+        <br /><br />
+        <input type="button" value="取走赢利" id="cmddo" name="cmddo" onclick="cmddo_click();" />
+        <span id="getdoback" name="getdoback">只有合约部署节点才能取走平台赢利的款项。</span>
+        <br /><br />
+ 
+        <input type="button" value="监听合约的事件" id="cmdlisten" name="cmdlisten" onclick="cmdlisten_click();" />
+        <span id="listenback" name="listenback"></span>
+        <br /><br />
+
+
+
+    </div>
+    
+</body>
+</html>
+```
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1557  
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/350713372 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1Mp4y1e7M2/ 
+
+
