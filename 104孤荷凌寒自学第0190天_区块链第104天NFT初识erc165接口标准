@@ -1,0 +1,218 @@
+孤荷凌寒自学第0190天_区块链第104天NFT初识erc165接口标准
+【主要内容】
+今天开始学习了解ntf的相关知识，并开始接触erc721合约标准。主要研究了erc165接口，共耗时34分钟。
+（此外整理作笔记花费了约27分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【搜寻相关博文，以学习】
+对erc165标准的讲解，以下博文讲得比较清楚，容易懂：
+https://www.cnblogs.com/wanghui-garcia/p/9507128.html
+然后从此博文中找到了一个完整的来自于github上的实例代码：（开头部分已经加上了自己的批注）
+```
+pragma solidity ^0.4.24;
+
+//来自于：https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/contracts/introspection/ERC165Checker.sol
+/**
+ * @title ERC165Checker
+ * @dev Use `using ERC165Checker for address`; to include this library
+ * https://github.com/ethereum/EIPs/blob/master/EIPS/eip-165.md
+ */
+library ERC165Checker {
+  // As per the EIP-165 spec, no interface should ever match 0xffffffff
+  bytes4 private constant InterfaceId_Invalid = 0xffffffff; //这个常量表示 另一个接口的标识 ，不知道是什么接口
+
+  bytes4 private constant InterfaceId_ERC165 = 0x01ffc9a7;  //这个常量表示 erc165接口的标识
+  /**
+   * 0x01ffc9a7 ===
+   *   bytes4(keccak256('supportsInterface(bytes4)'))
+   */
+
+  
+  /**
+   * @notice Query if a contract implements an interface, also checks support of ERC165
+   * @param _address  表示的是要去检测的 合约  的地址   The address of the contract to query for support of an interface
+   * @param _interfaceId 表示要检测的合约里，是否有我们想要检测的 接口 的ID， The interface identifier, as specified in ERC-165
+   * @return true if the contract at _address indicates support of the interface with
+   * identifier _interfaceId, false otherwise
+   * @dev Interface identification is specified in ERC-165.
+   */
+  //就是查看一个合约（使用合约地址address表明），是否支持某个接口（使用接口ID表明，该接口该接口是出了ERC165的supportsInterface(bytes4)即ID为0x01ffc9a7的其他接口）
+  function supportsInterface(address _address, bytes4 _interfaceId)
+    internal
+    view
+    returns (bool)
+  {
+    //第一个参数：_address 表示的是要去检测的 合约  的地址
+    //第二个参数：_interfaceId 表示要检测的合约里，是否有我们想要检测的 接口 的ID
+    // query support of both ERC165 as per the spec and support of _interfaceId　　 //根据上面的过程，首先先查看是否支持ERC165，然后再使用supportsInterface(bytes4)去查看是否使用了接口_interfaceId　　 //这里是&&，所以是以实现了ERC165为前提在检测接口的
+    //当你合约支持ERC165且支持ERC165的接口时，就说明你支持
+    return supportsERC165(_address) &&
+      supportsERC165Interface(_address, _interfaceId);
+
+    //这儿的return 语句
+    // 先检测 指定的合约 地址（_address）是不是支持erc165标准，是通过方法函数（自己这个库中的方法，在后面定义的）supportsERC165来实现的
+    // 因为使用的 && 逻辑运算，因此 表示 ，检查 到这个合约  是支持erc165标准的之后，再来 检查 这个合约 内部是否支持指定的 interfaceId 表示 的接口ID。
+    // 两者都检测成功，则返回true，只要其中一个没有检测成功，就返回false
+  }
+
+  /**
+   * @notice Query if a contract implements interfaces, also checks support of ERC165
+   * @param _address The address of the contract to query for support of an interface
+   * @param _interfaceIds A list of interface identifiers, as specified in ERC-165
+   * @return true if the contract at _address indicates support all interfaces in the
+   * _interfaceIds list, false otherwise
+   * @dev Interface identification is specified in ERC-165.
+   */
+  //就是查看一个合约（使用合约地址address表明），是否支持多个接口（使用接口ID表明）
+  function supportsInterfaces(address _address, bytes4[] _interfaceIds)
+    internal
+    view
+    returns (bool)
+  {
+    // query support of ERC165 itself
+    if (!supportsERC165(_address)) {//从这里就更能明显看出，如果你没有使用ERC165接口，就直接返回false了，所以是以实现了ERC165为前提在检测接口的
+      return false;
+    }
+
+    // query support of each interface in _interfaceIds
+    for (uint256 i = 0; i < _interfaceIds.length; i++) {
+      if (!supportsERC165Interface(_address, _interfaceIds[i])) {
+        return false;
+      }
+    }
+
+    // all interfaces supported
+    return true;
+  }
+
+  /**
+   * @notice Query if a contract supports ERC165
+   * @param _address The address of the contract to query for support of ERC165
+   * @return true if the contract at _address implements ERC165
+   */
+  //查看一个合约是否支持ERC165
+  function supportsERC165(address _address)
+    internal
+    view
+    returns (bool)
+  {
+    // Any contract that implements ERC165 must explicitly indicate support of
+    // InterfaceId_ERC165 and explicitly indicate non-support of InterfaceId_Invalid
+    //支持ERC165的合约都会显示地表现它支持ERC165的supportsInterface(bytes4)函数ID并且不支持接口ID为0xffffffff
+    return supportsERC165Interface(_address, InterfaceId_ERC165) &&
+      !supportsERC165Interface(_address, InterfaceId_Invalid);
+  }
+
+  /**
+   * @notice Query if a contract implements an interface, does not check ERC165 support
+   * @param _address The address of the contract to query for support of an interface
+   * @param _interfaceId The interface identifier, as specified in ERC-165
+   * @return true if the contract at _address indicates support of the interface with
+   * identifier _interfaceId, false otherwise
+   * @dev Assumes that _address contains a contract that supports ERC165, otherwise
+   * the behavior of this method is undefined. This precondition can be checked
+   * with the `supportsERC165` method in this library.
+   * Interface identification is specified in ERC-165.
+   */
+
+  function supportsERC165Interface(address _address, bytes4 _interfaceId)
+    private
+    view
+    returns (bool)
+  {
+    // success determines whether the staticcall succeeded and result determines
+    // whether the contract at _address indicates support of _interfaceId
+    (bool success, bool result) = callERC165SupportsInterface(
+      _address, _interfaceId);
+
+    return (success && result);
+  }
+
+  /**
+   * @notice Calls the function with selector 0x01ffc9a7 (ERC165) and suppresses throw
+   * @param _address The address of the contract to query for support of an interface
+   * @param _interfaceId The interface identifier, as specified in ERC-165
+   * @return success true if the STATICCALL succeeded, false otherwise
+   * @return result true if the STATICCALL succeeded and the contract at _address
+   * indicates support of the interface with identifier _interfaceId, false otherwise
+   */　　//调用staticcall来使用supportsInterface(bytes4)函数去查看使用接口的情况
+  function callERC165SupportsInterface(
+    address _address,
+    bytes4 _interfaceId
+  )
+    private
+    view
+    returns (bool success, bool result)
+  {
+    //在使用ABI调用合约函数时，传入的ABI会被编码成calldata（一串hash值）。calldata由function signature和argument encoding两部分组成。通过读取call data的内容， EVM可以得知需要执行的函数，以及函数的传入值，并作出相应的操作。　　//即形如0x01ffc9a701ffc9a700000000000000000000000000000000000000000000000000000000
+    //额外添加知识：Call Data: 是除了storage，memory的另一个数据保存位置，保存了inputdata。长度是4bytes+32bypes*n，n为参数个数，可通过CALLDATALOAD,CALLDATASIZE, CALLDATACOPY等指令进行操作
+    
+    //首先要生成input data，一开始为4bytes，为函数supportsInterface(bytes4)的签名0x01ffc9a7，然后后面为32bypes的参数_interfaceId，
+    bytes memory encodedParams = abi.encodeWithSelector(//对给定的参数进行ABI编码——从第二个预置给定的四字节选择器开始
+      InterfaceId_ERC165,
+      _interfaceId
+    );    //encodedParams = abi.encodeWithSelector(/      0x01ffc9a7,      0x01ffc9a6    );    返回：0x01ffc9a70000000000000000000000000000000000000000000000000000000001ffc9a6
+    //solidity的汇编语言
+    // solium-disable-next-line security/no-inline-assembly
+    assembly {
+      let encodedParams_data := add(0x20, encodedParams)//因为内存前32bits存储的是数据的长度，所以要想得到数据，要往后32bits读取
+      let encodedParams_size := mload(encodedParams)//得到该input data的大小，因为内存存储前32bits存储的是数据的长度
+
+      //solidity管理内存方式：内部存在一个空间内存的指针在内存位置0x40。如果你想分配内存，可以直接使用从那个位置的内存，并相应的更新指针。
+      //得到指向空内存位置0x40的指针
+      let output := mload(0x40)  // Find empty storage location using "free memory pointer"
+      //mem [a ... b]表示从位置a开始到（不包括）位置b的存储器的字节
+      //mstore(p, v)即mem[p..(p+32)] := v，在指针指向的内存位置后32个字节中填0，以免在过程中该内存位置被别的操作使用
+      mstore(output, 0x0)
+
+      //staticcall(g, a, in, insize, out, outsize)：identical to call(g, a, 0, in, insize, out, outsize) but do not allow state modifications，这个操作不会改变合约的状态
+      //call(g, a, v, in, insize, out, outsize) ： call contract at address a with input mem[in..(in+insize)) providing g gas and v wei and 
+      //   output area mem[out..(out+outsize)) returning 0 on error (eg. out of gas) and 1 on success
+      success := staticcall(
+        30000,                 // 30k gas,g
+        _address,              // To addr,a
+        encodedParams_data,     //in
+        encodedParams_size,     //insize
+        output,                 //out，指针位置
+        0x20                   // Outputs are 32 bytes long,0x20 == 32，outsize
+      )
+      //就是在地址_address（from）出调用合约，输入是mem[in..(in+insize))，即取得input data，即调用函数后，将得到的值放到内存位置mem[out..(out+outsize))处
+      //过程中使用了30000 gas和0 wei
+      result := mload(output)  // Load the result，得到调用合约得到的结果
+    }
+  }
+
+
+
+}
+
+```
+
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1708  
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/353176603 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1WK4y1e7xx/ 
+
+
