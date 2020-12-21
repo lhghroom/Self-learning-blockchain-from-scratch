@@ -1,0 +1,877 @@
+孤荷凌寒自学第0193天_区块链第107天NFT004继续erc165接口标准
+【主要内容】
+今天继续学习了解ntf的相关知识，并开始接触erc721合约标准。继续研究了erc165接口，共耗时31分钟。
+（此外整理作笔记花费了约42分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【继续理解并批注对erc165合约的理解】
+今天完成了这个简单的erc165检测合约的批注：
+```
+pragma solidity ^0.4.24;
+
+//来自于：https://github.com/OpenZeppelin/openzeppelin-solidity/blob/master/contracts/introspection/ERC165Checker.sol
+/**
+ * @title ERC165Checker
+ * @dev Use `using ERC165Checker for address`; to include this library
+ * https://github.com/ethereum/EIPs/blob/master/EIPS/eip-165.md
+ */
+library ERC165Checker {
+  // As per the EIP-165 spec, no interface should ever match 0xffffffff
+  bytes4 private constant InterfaceId_Invalid = 0xffffffff; //这个常量表示 另一个接口的标识 ，不知道是什么接口
+
+  bytes4 private constant InterfaceId_ERC165 = 0x01ffc9a7;  //这个常量表示 erc165接口的标识
+  /**
+   * 0x01ffc9a7 ===
+   *   bytes4(keccak256('supportsInterface(bytes4)'))
+   */
+
+  
+  /**
+   * @notice 查询合同是否实现接口，还检查对ERC165的支持
+   * @param _address  表示的是要去检测的 合约  的地址   The address of the contract to query for support of an interface
+   * @param _interfaceId 表示要检测的合约里，是否有我们想要检测的 接口 的ID， The interface identifier, as specified in ERC-165
+   * @return true if the contract at _address indicates support of the interface with
+   * identifier _interfaceId, false otherwise
+   * @dev Interface identification is specified in ERC-165.
+   */
+  //就是查看一个合约（使用合约地址address表明），是否支持某一个接口（使用接口ID表明，该接口是出了ERC165的supportsInterface(bytes4)即ID为0x01ffc9a7的其他接口）
+  function supportsInterface(address _address, bytes4 _interfaceId)
+    internal
+    view
+    returns (bool)
+  {
+    //第一个参数：_address 表示的是要去检测的 合约  的地址
+    //第二个参数：_interfaceId 表示要检测的合约里，是否有我们想要检测的 接口 的ID
+    // query support of both ERC165 as per the spec and support of _interfaceId　　 //根据上面的过程，首先先查看是否支持ERC165，然后再使用supportsInterface(bytes4)去查看是否使用了接口_interfaceId　　 //这里是&&，所以是以实现了ERC165为前提在检测接口的
+    //当你合约支持ERC165且支持ERC165的接口时，就说明你支持
+    return supportsERC165(_address) &&
+      supportsERC165Interface(_address, _interfaceId);
+
+    //这儿的return 语句
+    // 先检测 指定的合约 地址（_address）是不是支持erc165标准，是通过方法函数（自己这个库中的方法，在后面定义的）supportsERC165来实现的
+    // 因为使用的 && 逻辑运算，因此 表示 ，检查 到这个合约  是支持erc165标准的之后，再来 检查 这个合约 内部是否支持指定的 interfaceId 表示 的接口ID。
+    // 两者都检测成功，则返回true，只要其中一个没有检测成功，就返回false
+  }
+
+  /**
+   * @notice 与上一个方法类似，不过呢，这儿是检查 多个接口是否存在
+   * @param _address 表示要检测的合约部署后的地址 The address of the contract to query for support of an interface
+   * @param _interfaceIds 表示 要检测在这个合约中的多个接口的一个数组对象 A list of interface identifiers, as specified in ERC-165
+   * @return true if the contract at _address indicates support all interfaces in the
+   * _interfaceIds list, false otherwise
+   * @dev Interface identification is specified in ERC-165.
+   */
+  //就是查看一个合约（使用合约地址address表明），是否支持多个接口（使用接口ID的数组表明）
+  function supportsInterfaces(address _address, bytes4[] _interfaceIds)
+    internal
+    view
+    returns (bool)
+  {
+    //bytes4[]这种类型现在发现是可以直接传入字符串作为它的值的。
+    // query support of ERC165 itself
+    if (!supportsERC165(_address)) {//从这里就更能明显看出，如果你没有使用ERC165接口，就直接返回false了，所以是以实现了ERC165为前提在检测接口的
+      return false;
+    }
+
+    // query support of each interface in _interfaceIds
+    for (uint256 i = 0; i < _interfaceIds.length; i++) {
+      if (!supportsERC165Interface(_address, _interfaceIds[i])) {
+        return false;
+      }
+    }
+
+    // all interfaces supported
+    //如果要检测的全部接口都存在，就返回true，否则上面只要有其中的哪个接口没有检测到就已经返回false了
+    return true;
+  }
+
+  /**
+   * @notice 检查一个合约是不是支持erc165协议的合约 Query if a contract supports ERC165
+   * @param _address 要检查的已部署的合约的地址 The address of the contract to query for support of ERC165
+   * @return true if the contract at _address implements ERC165
+   */
+  //查看一个合约是否支持ERC165
+  function supportsERC165(address _address)
+    internal
+    view
+    returns (bool)
+  {
+    // Any contract that implements ERC165 must explicitly indicate support of
+    // InterfaceId_ERC165 and explicitly indicate non-support of InterfaceId_Invalid
+    //支持ERC165的合约都会显示地表现它支持ERC165的supportsInterface(bytes4)函数ID并且不支持接口ID为0xffffffff
+    return supportsERC165Interface(_address, InterfaceId_ERC165) &&
+      !supportsERC165Interface(_address, InterfaceId_Invalid);
+
+    //上面的返回值作以下详细说明：
+    /*
+      首先检查合约是否已经表示 它自己 支持erc165协议，是通过supportsERC165Interface方法来检查 的，传入的第一个实参是：_address，表示 合约部署后的地址，第二个实参是一个常数，表示 erc165协议的标识
+      然后检查 合约是否已经表示  它自己 不支持（是不支持）另一个协议（没有找到相应的详细资料），也是通过同样的方法来验证的。
+      如果这个合约地址只支持erc165，而且不支持另外一个协议，那么就返回true.
+    */
+  }
+
+  /**
+   * @notice 单纯查询一个合约是否实现了指定标识 ID的接口（interface），但是这个方法不检查ERC165支持 Query if a contract implements an interface, does not check ERC165 support
+   * @param _address The address of the contract to query for support of an interface
+   * @param _interfaceId The interface identifier, as specified in ERC-165
+   * @return true if the contract at _address indicates support of the interface with
+   * identifier _interfaceId, false otherwise
+   * @dev Assumes that _address contains a contract that supports ERC165, otherwise
+   * the behavior of this method is undefined. This precondition can be checked
+   * with the `supportsERC165` method in this library.
+   * Interface identification is specified in ERC-165.
+   */
+
+  function supportsERC165Interface(address _address, bytes4 _interfaceId)
+    private
+    view
+    returns (bool)
+  {
+    // success determines whether the staticcall succeeded and result determines
+    // whether the contract at _address indicates support of _interfaceId
+    //是通过调用另一个方法来检测在一个合约中是否有指定标识 ID的接口（interface)
+    (bool success, bool result) = callERC165SupportsInterface(
+      _address, _interfaceId);
+
+    return (success && result); //如果success和result都为true ,则返回计算结果 为true
+  }
+
+  /**
+   * @notice Calls the function with selector 0x01ffc9a7 (ERC165) and suppresses throw
+   * @param _address  要检查是否存在指定接口的合约地址 The address of the contract to query for support of an interface
+   * @param _interfaceId 要检测的的接口的ID (32byte) The interface identifier, as specified in ERC-165
+   * @return success true if the STATICCALL succeeded, false otherwise
+   * @return result true if the STATICCALL succeeded and the contract at _address
+   * indicates support of the interface with identifier _interfaceId, false otherwise
+   */
+   //调用staticcall来使用supportsInterface(bytes4)函数去查看使用接口的情况
+  function callERC165SupportsInterface(
+    address _address,
+    bytes4 _interfaceId
+  )
+    private
+    view
+    returns (bool success, bool result)
+  {
+    //在使用ABI调用合约函数时，传入的ABI会被编码成calldata（一串hash值）。calldata由function signature和argument encoding两部分组成。通过读取call data的内容， EVM可以得知需要执行的函数，以及函数的传入值，并作出相应的操作。　　//即形如0x01ffc9a701ffc9a700000000000000000000000000000000000000000000000000000000
+    //额外添加知识：Call Data: 是除了storage，memory的另一个数据保存位置，保存了inputdata。长度是4bytes+32bypes*n，n为参数个数，可通过CALLDATALOAD,CALLDATASIZE, CALLDATACOPY等指令进行操作
+    
+    //首先要生成input data，一开始为4bytes，为函数supportsInterface(bytes4)的签名0x01ffc9a7，然后后面为32bypes的参数_interfaceId，
+    bytes memory encodedParams = abi.encodeWithSelector(
+      //对给定的参数进行ABI编码——从第二个预置给定的四字节选择器开始
+      InterfaceId_ERC165, //这儿就是一个byte4类型的数据 ：前面定义的一个常量：0x01ffc9a7
+      _interfaceId //这儿是32byte的一个接口的ID值
+    );    
+    //现在局部变量 emcodedParams中存储的就是一个 input data位置的内容
+    //encodedParams = abi.encodeWithSelector(/      0x01ffc9a7,      0x01ffc9a6    );    
+    //通过ABI编码后返回：0x01ffc9a70000000000000000000000000000000000000000000000000000000001ffc9a6
+    //可以参见博文：https://www.cnblogs.com/tinyxiong/p/9453563.html
+
+    //=================================================================
+    //solidity的汇编语言
+    // solium-disable-next-line security/no-inline-assembly
+    //所有的汇编（内联汇编，又叫：行内汇编）代码必须放在由关键词 assembly 起始的{}的内部
+    assembly {
+      //关于内联汇编的知识可看博文：https://www.jianshu.com/p/ca66d230147c
+      //关于汇编语言最基础的知识的了解：http://www.ruanyifeng.com/blog/2018/01/assembly-language-primer.html
+      //现在初步感觉，solidity中使用的内联汇编代码就是solidity的evm虚拟机的操作代码指令与真正的x86的汇编指令并不完全一样。
+      let encodedParams_data := add(0x20, encodedParams)//0x20，是32的十六进制表示，就是32 。因为内存前32bits存储的是数据的长度，所以要想得到数据，要往后32bits读取
+      let encodedParams_size := mload(encodedParams)//得到该input data的大小，因为内存存储前32bits存储的是数据的长度
+      //感觉上两行的注释没有讲清楚，不能被理解 
+      //solidity管理内存方式：内部存在一个空间内存的指针在内存位置0x40。如果你想分配内存，可以直接使用从那个位置的内存，并相应的更新指针。
+      //得到指向空内存位置0x40的指针
+      let output := mload(0x40)  // Find empty storage location using "free memory pointer"
+      //mem [a ... b]表示从位置a开始到（不包括）位置b的存储器的字节
+      //mstore(p, v)即mem[p..(p+32)] := v，在指针指向的内存位置后32个字节中填0，以免在过程中该内存位置被别的操作使用
+      mstore(output, 0x0) //就是从Output所在的起始位置开始，往后32个字节全部填充0x0就是十进制 的0
+
+      //staticcall(g, a, in, insize, out, outsize)：identical to call(g, a, 0, in, insize, out, outsize) but do not allow state modifications，这个操作不会改变合约的状态
+      //call(g, a, v, in, insize, out, outsize) ： call contract at address a with input mem[in..(in+insize)) providing g gas and v wei and 
+      //   output area mem[out..(out+outsize)) returning 0 on error (eg. out of gas) and 1 on success
+      success := staticcall(
+        30000,                 // 30k gas,g 指定要支付的gas单价
+        _address,              // To addr,a 合约部署后的地址
+        encodedParams_data,     //in 这是前面生成（获取？）到的Input data 
+        encodedParams_size,     //insize 这是前面获取 的Input data的size
+        output,                 //out，指针位置，从这个位置开始存放输出内容。
+        0x20                   //这是要在输出区域填充的总数据长度：32byte。 Outputs are 32 bytes long,0x20 == 32，outsize
+      )
+      //就是在地址_address（from）出调用合约，输入是mem[in..(in+insize))，即取得input data，即调用函数后，将得到的值放到内存位置mem[out..(out+outsize))处
+      //过程中使用了30000 gas和0 wei
+      //上面的代码，已经给本函数 的返回变量 success完成了赋值。
+      result := mload(output)  // Load the result，得到调用合约得到的结果
+      //上一句我的理解是，到指定的Output区域的起始地址开始去读出这个区域内存放的内容，赋值给本方法的返回变量 result
+      //这种情况下，在汇编代码中，就没有使用return 语句。
+    }
+  }
+
+
+
+}
+
+```
+
+【今天补学了一理汇编语言】
+因为solidity的内联汇编使用了很多汇编指令，所以今天花了不少时间去了解熟悉基本的汇编编程知识，有以下收获 ：
+一、第一次真正认真学习了底层的堆 和 栈 的概念。
+认真学习了下面的博文：
+http://www.ruanyifeng.com/blog/2018/01/assembly-language-primer.html
+（一）heap （堆）
+学习汇编语言，首先必须了解两个知识点：寄存器和内存模型。
+1.寄存器
+先来看寄存器。CPU 本身只负责运算，不负责储存数据。数据一般都储存在内存之中，CPU 要用的时候就去内存读写数据。但是，CPU 的运算速度远高于内存的读写速度，为了避免被拖慢，CPU 都自带一级缓存和二级缓存。基本上，CPU 缓存可以看作是读写速度较快的内存。
+但是，CPU 缓存还是不够快，另外数据在缓存里面的地址是不固定的，CPU 每次读写都要寻址也会拖慢速度。因此，除了缓存之外，CPU 还自带了寄存器（register），用来储存最常用的数据。也就是说，那些最频繁读写的数据（比如循环变量），都会放在寄存器里面，CPU 优先读写寄存器，再由寄存器跟内存交换数据。
+ 
+寄存器不依靠地址区分数据，而依靠名称。每一个寄存器都有自己的名称，我们告诉 CPU 去具体的哪一个寄存器拿数据，这样的速度是最快的。有人比喻寄存器是 CPU 的零级缓存。
+2.寄存器的种类
+早期的 x86 CPU 只有8个寄存器，而且每个都有不同的用途。现在的寄存器已经有100多个了，都变成通用寄存器，不特别指定用途了，但是早期寄存器的名字都被保存了下来。
+EAX
+EBX
+ECX
+EDX
+EDI
+ESI
+EBP
+ESP
+上面这8个寄存器之中，前面七个都是通用的。ESP 寄存器有特定用途，保存当前 Stack 的地址（详见下一节）。
+ 
+我们常常看到 32位 CPU、64位 CPU 这样的名称，其实指的就是寄存器的大小。32 位 CPU 的寄存器大小就是4个字节。
+五、内存模型：Heap
+寄存器只能存放很少量的数据，大多数时候，CPU 要指挥寄存器，直接跟内存交换数据。所以，除了寄存器，还必须了解内存怎么储存数据。
+程序运行的时候，操作系统会给它分配一段内存，用来储存程序和运行产生的数据。这段内存有起始地址和结束地址，比如从0x1000到0x8000，起始地址是较小的那个地址，结束地址是较大的那个地址。
+ 
+程序运行过程中，对于动态的内存占用请求（比如新建对象，或者使用malloc命令），系统就会从预先分配好的那段内存之中，划出一部分给用户，具体规则是从起始地址开始划分（实际上，起始地址会有一段静态数据，这里忽略）。举例来说，用户要求得到10个字节内存，那么从起始地址0x1000开始给他分配，一直分配到地址0x100A，如果再要求得到22个字节，那么就分配到0x1020。
+ 
+这种因为用户主动请求而划分出来的内存区域，叫做 Heap（堆）。它由起始地址开始，从低位（地址）向高位（地址）增长。Heap 的一个重要特点就是不会自动消失，必须手动释放，或者由垃圾回收机制来回收。
+
+(二) stack （栈）
+除了 Heap 以外，其他的内存占用叫做 Stack（栈）。简单说，Stack 是由于函数运行而临时占用的内存区域。
+ 
+请看下面的例子。
+
+int main() {
+   int a = 2;
+   int b = 3;
+}
+上面代码中，系统开始执行main函数时，会为它在内存里面建立一个帧（frame），所有main的内部变量（比如a和b）都保存在这个帧里面。main函数执行结束后，该帧就会被回收，释放所有的内部变量，不再占用空间。
+ 
+如果函数内部调用了其他函数，会发生什么情况？
+
+int main() {
+   int a = 2;
+   int b = 3;
+   return add_a_and_b(a, b);
+}
+上面代码中，main函数内部调用了add_a_and_b函数。执行到这一行的时候，系统也会为add_a_and_b新建一个帧，用来储存它的内部变量。也就是说，此时同时存在两个帧：main和add_a_and_b。一般来说，调用栈有多少层，就有多少帧。
+ 
+等到add_a_and_b运行结束，它的帧就会被回收，系统会回到函数main刚才中断执行的地方，继续往下执行。通过这种机制，就实现了函数的层层调用，并且每一层都能使用自己的本地变量。
+所有的帧都存放在 Stack，由于帧是一层层叠加的，所以 Stack 叫做栈。生成新的帧，叫做"入栈"，英文是 push；栈的回收叫做"出栈"，英文是 pop。Stack 的特点就是，最晚入栈的帧最早出栈（因为最内层的函数调用，最先结束运行），这就叫做"后进先出"的数据结构。每一次函数执行结束，就自动释放一个帧，所有函数执行结束，整个 Stack 就都释放了。
+ 
+ 
+Stack 是由内存区域的结束地址开始，从高位（地址）向低位（地址）分配。比如，内存区域的结束地址是0x8000，第一帧假定是16字节，那么下一次分配的地址就会从0x7FF0开始；第二帧假定需要64字节，那么地址就会移动到0x7FB0。
+ 
+
+【solidity中的内联汇编语言使用的是evm虚拟机自己的机器指令集】
+https://www.jianshu.com/p/ca66d230147c
+来自以上博文的引用：
+汇编跟solidity一样，会解析注释，字面量和标识符。所以你可以使用//和/* */来写注释。内联编译用assembly {}标记，代码在花括号中。会使用下面的规则（在以后的章节中会详细描述）：
+•	字面量，例如 0x123,42或者abc(字符串最多32个字符)
+•	操作符（指令类型），例如mload sload dup1 sstore，更多的操作符号，查看下面的列表。
+•	函数类型的操作符，例如add(1, mlod(0)) 
+•	标签，如name 
+•	变量声明，例如let x := 7,let x := add(y, 3)或者let x(初始值为empty（0))
+•	标识符（标签或者汇编的变量和内联汇编情况下的外部变量），例如jump(name)，3 x add 
+•	赋值（指令形式），例如 3 =: x 
+•	函数形式的赋值，例如x := add(y, 3) 
+•	包含局部变量的区块，例如{ let x := 3 { let y := add(x, 1) } } 
+操作码
+本文档不会完全描述以太坊虚拟机，但是下面的列表是操作码集合，这有必要了解。
+如果操作码包含参数（总是从栈顶取数据），会有圆括号。注意非函数类型的预留参数的顺序（在下面阐述）。操作码有-标记的是不需要将数据推入堆栈的，有*标记的会有些特别，其他的都会往堆栈中推入一个数据。
+在下面的列表中，mem[a ... b)表明从a开始到b但是不包括b分配这么多字节的内存。storage[p]表明p位置的数据。
+操作码push1和jumpdest不能直接使用。
+在语法中，操作码相当于预定义的标识符。
+操作码	标记	解释
+stop	-	停止执行，相当于返回（0,0)
+add(x,y)		x + y
+sub(x,y)		x - y
+mul(x,y)		x * y
+div(x,y)		x / y
+sdiv(x,y)		x / y ,对于有符号数，用补码
+mod(x,y)		x % y
+smod(x,y)		x % y,对于有符号数，用补码
+exp(x,y)		x的y次方
+not(x)		～x，按位取反
+lt(x,y)		如果x < y,返回1，否则返回0
+gt(x,y)		如果x > y,返回1，否则返回0
+slt(x,y)		如果x < y,返回1，否则返回0,对于有符号数，用补码
+sgt(x,y)		如果x > y,返回1，否则返回0,对于有符号数，用补码
+eq(x,y)		如果x == y,返回1，否则返回0
+iszero(x)		如果x == 0,返回1，否则返回0
+and(x,y)		x和y按位与
+or(x,y)		x和y按位或
+xor(x,y)		x和y按位异或
+byte(n,x)		x的第n位，最重要的是第0位
+addmod(x,y,m)		(x + y) % m，可以是任意精度的算术
+mulmod(x,y,m)		(x * y) % m，可以是任意精度的算术
+signxtend(i,x)		从第（i * 8 + 7）位开始数最少签名位数，来扩展签名
+keccak256(p,n)		keccak(mem[p...(p+n)))
+sha3(p,n)		sha3(mem[p...(p+n)))
+jump(label)	-	跳转到label标签／代码位置
+jumpi(label, cond)	-	如果cond非零，就跳转到label标签
+pc		代码的当前位置
+pop(x)	-	删除x推入的元素
+dup1 ... dup16		拷贝第i位的元素到栈顶（从顶端开始数）
+swap1 ... swap16	*	交换栈顶和第i位的元素
+mload（p）		mem[p..(p+32))
+mstore(p, v)	-	mem[p..(p+32)) := v
+mstore8(p, v)	-	mem[p] := v & 0xff - 只分配一个字节
+sload(p)		storage[p]
+sstore(p, v)	-	storage[p] := v
+msize		内存的大小，例如最大的内存可访问索引
+gas		可用的gas数
+address		当前合约／执行上下文的地址
+balance(a)		地址a的余额，单位为wei
+caller		调用者（不包含delegatecall）
+callvalue		当前调用发送的wei数
+calldataload(p)		从位置p开始的调用数据（32位）
+calldatasize		调用数据的大小，bytes为单位
+calldatacopy(t,f,s)	-	从数据位置f，拷贝s位数据，到内存位置t
+codesize		当前合约/执行上下文的代码大小
+codecopy(t,f,s)	-	从代码位置f，拷贝s位数据，到内存位置t
+extcodesize(a)		地址a处代码的大小
+extcodecopy(a, t, f, s)	-	像codecopy(t,f,s)，但是是位置a处的代码
+returndatasize		上个返回值的数据大小
+returndatacopy(t, f, s)	-	在返回数据的位置f拷贝s位，到内存位置t
+create(v, p, s)		用 mem[p..(p+s))长度的代码，创建一个新的合约，发送v wei的以太币，并返回合约地址
+create2(v, n, p, s)		用 地址为keccak256(< address > . n . keccak256(mem[p..(p+s)))，mem[p..(p+s))长度的代码，创建一个新的合约，发送v wei的以太币，并返回合约地址
+call(g, a, v, in, insize, out, outsize)		调用地址a上的合约，参数为mem[in..(in+insize))，提供g的gas，v wei的以太币，输出到mem[out..(out+outsize))，如果成功返回1，失败（例如gas不足）返回0
+callcode(g, a, v, in, insize, out, outsize)		与call相同，但是使用a处的代码，并只能在当前合约的上下文中执行
+delegatecall(g, a, in, insize, out, outsize)		与callcode相同，但是保留caller和callvalue 
+staticcall(g, a, in, insize, out, outsize)		与_call(g, a, 0, in, insize, out, outsize) _相同，但是不允许改变状态
+return(p, s)	-	结束执行，返回数据mem[p..(p+s))
+revert(p, s)	-	结束执行，恢复状态变化，返回数据mem[p..(p+s))
+selfdestruct(a)	-	结束执行，销毁当前合约，并把余额发送给a地址
+invalid	-	用invalid指令结束执行
+log0(p,s)	-	记录日志，不包含主题，数据为mem[p..(p+s)
+log1(p,s,t1)	-	记录日志，包含主题t1，数据为mem[p..(p+s)
+log2(p,s,t1,t2)	-	记录日志，包含主题t1，t2，数据为mem[p..(p+s)
+log3(p,s,t1,t2,t3)	-	记录日志，包含主题t1，t2，t3，数据为mem[p..(p+s)
+log4(p,s,t1,t2,t3,t4)	-	记录日志，包含主题t1，t2，t3，t4，数据为mem[p..(p+s)
+origin		交易发起方
+gasprice		交易的gas价格
+blockhash(b)		区块序列为b的hash - 只能获取到当前块的最近256块
+coinbase		当前的矿工收益
+timestamp		自创世纪区块以来的时间戳，单位为秒
+number		当前区块的序号
+difficulty		当前区块的难度
+gaslimit		当前代码块的gas限制
+字面量
+你可以使用整形常量，可以用十进制或十六进制的写法，一个合适的PUSHi指令会自动的生成。下面的代码执行2加3等于5，然后计算位宽，然后与字符串"abc"相加。字符串是左对齐保存的，并且不能超过32位。
+assembly { 2 3 add "abc" and }
+函数类型
+你可以用同样的方式在操作码之后输入操作码，它们会以字节码结束。例如，给内存0x80处的值加3的代码是：
+3 0x80 mload add 0x80 mstore
+由于这种形式很难看出来操作码的实际参数，Solidity内联编译也提供“函数形式”的写法，如下代码与上面的代码功能相同：
+mstore(0x80, add(mload(0x80), 3))
+函数形式的表达式内部不能使用指令类型。例如,1 2 mstore(0x80, add)是不允许的。必须要写成mstore(0x80, add(2, 1))。如果操作码没有参数，那么圆括号就可以省略。
+注意，参数顺序是和函数类型的参数顺序相反，如果你使用函数类型，第一个参数应该在栈顶。
+访问外部变量和函数
+Solidity的变量和其他标识符可以通过使用名称来简单访问。对金钱变量，将会把地址，而不是金额推入堆栈。storage变量有些不同：storage的值可能不会占据一个完整的storage片，所以它们的地址是由一个片地址和位偏移组成。为了得到变量x的片地址，使用x_slot，获取偏移使用x_offset。
+在赋值操作中（如下所示），我们可以使用Solidity变量去赋值。
+内联编译外部的函数，也是可以访问的：汇编会把它们的入口标签（使用虚拟函数解决方法）压入堆栈。Solidity中的调用语法如下：
+•	调用者压入标签，arg1,arg2,...,argn
+•	被调用返回ret1,ret2,...,retm
+这个功能使用起来还是比较笨拙，因为栈偏移会在调用中变化，所以引用的值也会出错。
+```
+pragma solidity ^0.4.11;
+
+contract C {
+    uint b;
+    function f(uint x) returns (uint r) {
+        assembly {
+            r := mul(x, sload(b_slot)) // 这里忽略了偏移，因为我们知道，偏移为0
+        }
+    }
+}
+```
+标签（labels）
+EVM汇编的另一个问题是jump和jumpi使用的是绝对地址，可能会很容易变动。Solidity内联编译提供标签来使跳转更加容易。注意，标签是底层特性，不用标签，只用汇编函数，循环和switcht指令的效率可能会更高（看下面的例子）。下面的代码是计算斐波那契数列。
+```
+{
+    let n := calldataload(4)
+    let a := 1
+    let b := a
+loop:
+    jumpi(loopend, eq(n, 0))
+    a add swap1
+    n := sub(n, 1)
+    jump(loop)
+loopend:
+    mstore(0, a)
+    return(0, 0x20)
+}
+```
+请注意，自动访问栈变量只能在编译器知道当前栈的深度的情况有效。如果跳转的深度和目标的深度不同，就会失败。但是使用jumps还是可以的，但是这种情况下你不能访问栈变量了（即使是汇编变量）。
+另外，栈深度分析器对opcode逐一分析（不是根据控制流），所以在下面的例子中，编译器会对two标签的深度有错误的分析。
+```
+{
+    let x := 8
+    jump(two)
+    one:
+        // 这里栈深度是2（因为我们压入了x和7）
+        // 但是汇编器认为深度只有1，因为它是自顶向下读取的。
+        // 这里访问变量x会导致错误。
+        x := 9
+        jump(three)
+    two:
+        7 // 在堆栈中压入数据
+        jump(one)
+    three:
+}
+```
+这个问题可以手动的调整栈深度来修复-你可以在标签之前提供一个栈深度偏移。注意，你不必关心这这些事情，如果你使用循环和汇编局部函数。
+极端情况下的例子如下所示：
+```
+{
+    let x := 8
+    jump(two)
+    0 // 这个代码是可达的，但是会修正栈深度
+    one:
+        x := 9 // x是可访问的
+        jump(three)
+        pop // 类似于负校正
+    two:
+        7 // 压入数据
+        jump(one)
+    three:
+    pop // 我们必须要手动的弹出压入的数据
+}
+```
+
+声明汇编局部变量（Declaring Assembly-Local Variables）
+我们可以使用let关键字来声明变量，但是这些变量只能在内联编译代码块中可见。也就是只能在{...}块中。这里的原理是，let指令会生成一个新的栈slot，保留给变量，并且当代码块结束的时候自动的移除。你需要为变量提供初始值，可以是0，但是也可以是复杂的函数表达式。
+```
+pragma solidity ^0.4.0;
+
+contract C {
+    function f(uint x) returns (uint b) {
+        assembly {
+            let v := add(x, 1)
+            mstore(0x80, v)
+            {
+                let y := add(sload(v), 1)
+                b := y
+            } // y会被回收
+            b := add(b, v)
+        } // v被回收
+    }
+}
+```
+赋值
+汇编局部变量和函数局部变量的赋值是可以实现的。注意对指向内存或storage的变量赋值时，你改变的是指针，而不是数据。
+有两种类型的赋值：函数形式的和指令形式的。对于函数形式的赋值（variable := value），你要在函数类型的表达式中提供值，并会返回一个栈值。对于指令形式的（=: variable），值从栈顶取。对于这两种形式，冒号指向的是变量。赋值的操作是用新的值替换栈中的变量值。
+```
+{
+    let v := 0 // 声明变量，函数形式的赋值
+    let g := add(v, 2)
+    sload(10)
+    =: v // 指令形式的赋值，把 sload(10)的结果赋值给v
+}
+```
+switch
+你可以像很基本的“if/else“一样，来使用switch表达式。它会拿着表达式的值和多个条件对比。对应的程序分支会被执行。和一些容易出错的语言相比，这里的控制流不会接着执行下一个分支。switch可以有一个默认分支，称为default：
+```
+{
+    let x := 0
+    switch calldataload(4)
+    case 0 {
+        x := calldataload(0x24)
+    }
+    default {
+        x := calldataload(0x44)
+    }
+    sstore(0, div(x, 2))
+}
+```
+分支不需要包裹大括号，但是分支需要大括号。
+循环
+汇编支持简单的for形式的循环。for形式的循环，有一个头部，包含初始条件，条件和遍历结束条件。条件必须是函数形式的表达式。但是其他两个是代码块。如果初始部分声明了任何变量，这些变量的作用域可以延伸到函数体（包含条件和遍历结束条件的部分）。
+下面的例子会计算一个内存区域的和：
+```
+{
+    let x := 0
+    for { let i := 0 } lt(i, 0x100) { i := add(i, 0x20) } {
+        x := add(x, mload(i))
+    }
+}
+```
+函数
+汇编支持定义更底层的函数。函数从堆栈中获取参数（和一个程序计数器PC），并且把结果返回到堆栈中。调用函数看起来只是执行函数形式的操作码。
+函数可以定义在任何地方，并且在整个代码块中可见。在函数中，你不能访问在函数外部定义的局部变量。函数也没有明确的return表达式。
+如果你调用一个函数，并返回多个值，你可以把它们赋值给元祖。a,b := f(x)或者let a,b := f(x)。
+下面的例子通过平方和乘法，实现了求幂功能。
+```
+{
+    function power(base, exponent) -> result {
+        switch exponent
+        case 0 { result := 1 }
+        case 1 { result := base }
+        default {
+            result := power(mul(base, base), div(exponent, 2))
+            switch mod(exponent, 2)
+                case 1 { result := mul(base, result) }
+        }
+    }
+}
+```
+要避免的要点
+内联编译可能看起来像是高层次的，但是它确实是底层接口。函数调用，循环和switch分支会被转变为简单的重写规则，并且在那之后，编译器为你做的事情只是重新整理函数形式的操作码，管理跳转标签，计算可访问的栈深度，在代码块结束的时候移除汇编局部变量的栈内存。尤其是最后两个情况，必须要清楚，编译器只会自顶向下的计算栈深度，而不是跟随控制流。另外交换只会交换栈里的内容，而不会交换变量的指向。
+Solidity约定
+和EVM的汇编相比，Solidity可以知道比256位更窄的类型，例如uint24。为了提高效率，很多算术操作符会把它们看成是256位的，并且高位只会在有需要的时候清除。例如，在写入内存的时候要缩短，或者在比较的时候。这意味这，如果你在内联编译中访问这些变量，那你要首先手动的去除高位。
+Solidity用一种很简单的方式来管理内存：在0x40有一个空白内存指针。如果你要分配内存，只需要使用该指针指向的内存，并相应的更新指针。
+Solidity中的内存数组元素，只会占据32位的倍数（对的，对于byte[]也是一样的，但是bytes和string就不一样了）。多维内存数组会指向内存数组。动态数组的长度会保存在数组的第一个slot中，然后后面的都是数组的值。
+警告：静态大小的内存数组不会有长度的字段，但是会在以后的版本中加上，以提高静态数组--动态数组的可转换性，所以现在不要做这样的转换。
+独立汇编（Standalone Assembly）
+如上所说的汇编语言的内联编译，也可以用独立编译。事实上，计划用它作为solidity的中间语言。在这种情况下，它有如下几个目的：
+1.	用它写的代码可读，即使是solidity编译器生成的代码，也是可读的。
+2.	从汇编到字节码的转换的黑魔法应该越少越好。
+3.	控制流可以方便的监测来有助格式检测和优化。
+为了达到第一个和最后一个目标，汇编提供了高级的指令，像for循环，switch表达式和函数调用。而不需要用到SWAP，DUP，JUMP和JUMPI，因为前两个会扰乱数据流，后两个会扰乱控制流。另外，mul(add(x,y), 7)形式的函数表达式,好过操作码形的7 y x add mul,因为第一种形式更加直观的看出操作码用的操作数。
+第二个目标的实现，通过引入去语法糖的短语--只是移除了高阶构指令--并允许检测生成的低阶的汇编码。编译器唯一的非局部操作是为用户定义的标识符（函数，变量...）查找名称，该过程遵循简单的作用域规则和清理堆栈中的局部变量。
+作用域：标识符（标签，变量，函数，汇编（？assembly））只能在被声明的代码块中可见（包含当前块的嵌入代码块）。不允许跨代码块访问局部变量，即使它们在作用域中。影子调用（？shadowing）是不允许的。局部变量必须先定义后使用。但是标签，函数和汇编可以。汇编是特殊的代码块，例如，用来返回运行时操作码或者创建合约。外部的标识符是不能在内部访问。
+如果控制流执行到代码块结尾，会插入于本地变量数目相同的pop指令。局部变量无论在什么时候被引用，代码生成器必须知道堆栈当前的相对位置，并且要跟踪栈的深度。由于所有的局部变量会在代码结束的时候被移除，代码执行之前和执行之后的栈深度是一致的。如果不是这种情况，会出现一个警告。
+我们需要高阶指令--例如switch，for和函数--的原因是：
+使用switch，for和函数，可以不用jump和jumpi来实现复杂的代码。分析控制流也变得更加容易了，这会提高格式校验和优化的效率。
+另外，如果允许手动跳转，计算栈的深度也是比较复杂的。所有局部变量的位置必须知道，另外还要正确引用变量，在代码块结束的时候正确的清理变量。如果不是连续的执行流，去语法糖机制能够在不可达的地方，正确的插入操作来较正栈深度。
+例子：
+我们分析一个例子从Solidity到去语法糖的汇编来说明原理。我们会分析下面Solidity代码的字节码：
+```
+pragma solidity ^0.4.0;
+
+contract C {
+  function f(uint x) returns (uint y) {
+    y = 1;
+    for (uint i = 0; i < x; i++)
+      y = 2 * y;
+  }
+}
+```
+下面的是生成的汇编：
+```
+{
+  mstore(0x40, 0x60) // 保存空白内存指针
+  // 函数调度
+  switch div(calldataload(0), exp(2, 226))
+  case 0xb3de648b {
+    let (r) = f(calldataload(4))
+    let ret := $allocate(0x20)
+    mstore(ret, r)
+    return(ret, 0x20)
+  }
+  default { revert(0, 0) }
+  // 内存分配
+  function $allocate(size) -> pos {
+    pos := mload(0x40)
+    mstore(0x40, add(pos, size))
+  }
+  // 合约地址
+  function f(x) -> y {
+    y := 1
+    for { let i := 0 } lt(i, x) { i := add(i, 1) } {
+      y := mul(2, y)
+    }
+  }
+}
+```
+在去语法糖处理之后，代码如下：
+```
+{
+  mstore(0x40, 0x60)
+  {
+    let $0 := div(calldataload(0), exp(2, 226))
+    jumpi($case1, eq($0, 0xb3de648b))
+    jump($caseDefault)
+    $case1:
+    {
+      // 函数调用- 我们把返回标签和参数压入堆栈
+      $ret1 calldataload(4) jump(f)
+      // 这是不可达代码，添加的操作码用来调节栈深度：参数会移除，引入返回值
+      pop pop
+      let r := 0
+      $ret1: // 真正的返回点
+      $ret2 0x20 jump($allocate)
+      pop pop let ret := 0
+      $ret2:
+      mstore(ret, r)
+      return(ret, 0x20)
+      // 尽管这是没有用的，这个跳转是自动插入的。因为去语法糖处理是存粹的语法操作，
+      // 不会分析控制流
+      jump($endswitch)
+    }
+    $caseDefault:
+    {
+      revert(0, 0)
+      jump($endswitch)
+    }
+    $endswitch:
+  }
+  jump($afterFunction)
+  allocate:
+  {
+    // 我们跳过不可达代码
+    jump($start)
+    let $retpos := 0 let size := 0
+    $start:
+    // 输出变量和参数有一样的作用域，并且被分配
+    let pos := 0
+    {
+      pos := mload(0x40)
+      mstore(0x40, add(pos, size))
+    }
+    // 这个代码用返回值和跳转来替换参数
+    swap1 pop swap1 jump
+    // 这里也是不可达代码，用来矫正栈的深度
+    0 0
+  }
+  f:
+  {
+    jump($start)
+    let $retpos := 0 let x := 0
+    $start:
+    let y := 0
+    {
+      let i := 0
+      $for_begin:
+      jumpi($for_end, iszero(lt(i, x)))
+      {
+        y := mul(2, y)
+      }
+      $for_continue:
+      { i := add(i, 1) }
+      jump($for_begin)
+      $for_end:
+    } // 这里会为i插入一个pop指令
+    swap1 pop swap1 jump
+    0 0
+  }
+  $afterFunction:
+  stop
+}
+```
+汇编会在四个阶段发生：
+1.	解析
+2.	去语法糖（移除 switch，for和函数）
+3.	操作码流生成
+4.	字节码生成
+我们会用伪代码的方式来分析第一步到第三步。下面是正规的阐述。（？More formal specifications will follow.）
+解析／语法
+解析器的任务如下：
+•	把字节码流转换为令牌流，移除c++格式的注释（一种用于代码引用的特殊注释，但是我们在这里不会再解释）（？Turn the byte stream into a token stream, discarding C++-style comments (a special comment exists for source references, but we will not explain it here).）
+•	根据如下的语法，将令牌流转换为AST。
+•	在标识符定义的代码块中注册标识符（注释为AST节点）并且注明指向的节点，以及可以访问的变量。
+汇编词法分析器会遵循Solidity自己定义的规则，
+空白字符用来分离令牌，它包含空格键，Tab键和换行。注释按照传统的javascript/c++的方式，它们会被替换为空白字符。
+语法：
+```
+AssemblyBlock = '{' AssemblyItem* '}'
+AssemblyItem =
+    Identifier |
+    AssemblyBlock |
+    FunctionalAssemblyExpression |
+    AssemblyLocalDefinition |
+    FunctionalAssemblyAssignment |
+    AssemblyAssignment |
+    LabelDefinition |
+    AssemblySwitch |
+    AssemblyFunctionDefinition |
+    AssemblyFor |
+    'break' | 'continue' |
+    SubAssembly | 'dataSize' '(' Identifier ')' |
+    LinkerSymbol |
+    'errorLabel' | 'bytecodeSize' |
+    NumberLiteral | StringLiteral | HexLiteral
+Identifier = [a-zA-Z_$] [a-zA-Z_0-9]*
+FunctionalAssemblyExpression = Identifier '(' ( AssemblyItem ( ',' AssemblyItem )* )? ')'
+AssemblyLocalDefinition = 'let' IdentifierOrList ':=' FunctionalAssemblyExpression
+FunctionalAssemblyAssignment = IdentifierOrList ':=' FunctionalAssemblyExpression
+IdentifierOrList = Identifier | '(' IdentifierList ')'
+IdentifierList = Identifier ( ',' Identifier)*
+AssemblyAssignment = '=:' Identifier
+LabelDefinition = Identifier ':'
+AssemblySwitch = 'switch' FunctionalAssemblyExpression AssemblyCase*
+    ( 'default' AssemblyBlock )?
+AssemblyCase = 'case' FunctionalAssemblyExpression AssemblyBlock
+AssemblyFunctionDefinition = 'function' Identifier '(' IdentifierList? ')'
+    ( '->' '(' IdentifierList ')' )? AssemblyBlock
+AssemblyFor = 'for' ( AssemblyBlock | FunctionalAssemblyExpression)
+    FunctionalAssemblyExpression ( AssemblyBlock | FunctionalAssemblyExpression) AssemblyBlock
+SubAssembly = 'assembly' Identifier AssemblyBlock
+LinkerSymbol = 'linkerSymbol' '(' StringLiteral ')'
+NumberLiteral = HexNumber | DecimalNumber
+HexLiteral = 'hex' ('"' ([0-9a-fA-F]{2})* '"' | '\'' ([0-9a-fA-F]{2})* '\'')
+StringLiteral = '"' ([^"\r\n\\] | '\\' .)* '"'
+HexNumber = '0x' [0-9a-fA-F]+
+DecimalNumber = [0-9]+
+```
+去语法糖（desugaring）
+AST变换会移除for，switch和函数指令。结果还是可以通过相同的分析器分析的。但是不会用到特定的指令。如果使用了跳转，不是连续执行，那么就要加入关于堆栈的信息。除非没有局部变量或者外部作用域的变量被访问到，或者指令执行之前和指令执行之后的堆栈深度是相同的。
+伪代码：
+```
+desugar item: AST -> AST =
+match item {
+AssemblyFunctionDefinition('function' name '(' arg1, ..., argn ')' '->' ( '(' ret1, ..., retm ')' body) ->
+  <name>:
+  {
+    jump($<name>_start)
+    let $retPC := 0 let argn := 0 ... let arg1 := 0
+    $<name>_start:
+    let ret1 := 0 ... let retm := 0
+    { desugar(body) }
+    swap and pop items so that only ret1, ... retm, $retPC are left on the stack
+    jump
+    0 (1 + n times) to compensate removal of arg1, ..., argn and $retPC
+  }
+AssemblyFor('for' { init } condition post body) ->
+  {
+    init // 不能在它自己的代码块里，因为我们期望变量的作用域扩展到整个代码体
+    // 找到 I， 没有 $forI_* 标签。
+    $forI_begin:
+    jumpi($forI_end, iszero(condition))
+    { body }
+    $forI_continue:
+    { post }
+    jump($forI_begin)
+    $forI_end:
+  }
+'break' ->
+  {
+    // 找到标签$forI_end 最近的作用域
+    // 弹出在这个点上，定义的所有变量，但是不是在 $forI_end 上
+    jump($forI_end)
+    0 (很多上面的变量被移除了)
+  }
+'continue' ->
+  {
+    // 找到标签$forI_continue 最近的作用域
+    // 弹出在这个点上，定义的所有变量，但是不是在 $forI_continue
+    jump($forI_continue)
+    0 (很多上面的变量被移除了)
+  }
+AssemblySwitch(switch condition cases ( default: defaultBlock )? ) ->
+  {
+    // 找到I，直到没有$switchI* 标签或者变量
+    let $switchI_value := condition
+    for each of cases match {
+      case val: -> jumpi($switchI_caseJ, eq($switchI_value, val))
+    }
+    if default block present: ->
+      { defaultBlock jump($switchI_end) }
+    for each of cases match {
+      case val: { body } -> $switchI_caseJ: { body jump($switchI_end) }
+    }
+    $switchI_end:
+  }
+FunctionalAssemblyExpression( identifier(arg1, arg2, ..., argn) ) ->
+  {
+    if identifier is function <name> with n args and m ret values ->
+      {
+        // 找到 I 直到 $funcallI_* 标签不存在
+        $funcallI_return argn  ... arg2 arg1 jump(<name>)
+        pop (n + 1 times)
+        if the current context is `let (id1, ..., idm) := f(...)` ->
+          let id1 := 0 ... let idm := 0
+          $funcallI_return:
+        else ->
+          0 (m times)
+          $funcallI_return:
+          turn the functional expression that leads to the function call
+          into a statement stream
+      }
+    else -> desugar(children of node)
+  }
+default node ->
+  desugar(children of node)
+}
+```
+操作码流生成（Opcode Stream Generation）
+在操作码流生成的过程中，我们用计数器来跟踪堆栈的深度，来使得堆栈变量可以访问。堆栈深度能够被每个能够改变堆栈的操作码和用来注释堆栈矫正的标签所改变。每当新的变量被声明，堆栈深度也会被改变。如果访问一个变量（要么拷贝它的值，要么赋值），会依据当前堆栈的深度和变量被引入点的深度来选择使用合适的DUP或者SWAP指令。
+伪代码：
+```
+codegen item: AST -> opcode_stream =
+match item {
+AssemblyBlock({ items }) ->
+  join(codegen(item) for item in items)
+  if last generated opcode has continuing control flow:
+    POP for all local variables registered at the block (including variables
+    introduced by labels)
+    warn if the stack height at this point is not the same as at the start of the block
+Identifier(id) ->
+  lookup id in the syntactic stack of blocks
+  match type of id
+    Local Variable ->
+      DUPi where i = 1 + stack_height - stack_height_of_identifier(id)
+    Label ->
+      // 在生成字节码过程中，引用会被解决
+      PUSH<bytecode position of label>
+    SubAssembly ->
+      PUSH<bytecode position of subassembly data>
+FunctionalAssemblyExpression(id ( arguments ) ) ->
+  join(codegen(arg) for arg in arguments.reversed())
+  id (which has to be an opcode, might be a function name later)
+AssemblyLocalDefinition(let (id1, ..., idn) := expr) ->
+  register identifiers id1, ..., idn as locals in current block at current stack height
+  codegen(expr) - assert that expr returns n items to the stack
+FunctionalAssemblyAssignment((id1, ..., idn) := expr) ->
+  lookup id1, ..., idn in the syntactic stack of blocks, assert that they are variables
+  codegen(expr)
+  for j = n, ..., i:
+  SWAPi where i = 1 + stack_height - stack_height_of_identifier(idj)
+  POP
+AssemblyAssignment(=: id) ->
+  look up id in the syntactic stack of blocks, assert that it is a variable
+  SWAPi where i = 1 + stack_height - stack_height_of_identifier(id)
+  POP
+LabelDefinition(name:) ->
+  JUMPDEST
+NumberLiteral(num) ->
+  PUSH<num interpreted as decimal and right-aligned>
+HexLiteral(lit) ->
+  PUSH32<lit interpreted as hex and left-aligned>
+StringLiteral(lit) ->
+  PUSH32<lit utf-8 encoded and left-aligned>
+SubAssembly(assembly <name> block) ->
+  append codegen(block) at the end of the code
+dataSize(<name>) ->
+  assert that <name> is a subassembly ->
+  PUSH32<size of code generated from subassembly <name>>
+linkerSymbol(<lit>) ->
+  PUSH32<zeros> and append position to linker table
+}
+```
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1713   
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+www.941xue.com 
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/354109781 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1zK411K7Xv/ 
+
+
