@@ -1,0 +1,194 @@
+孤荷凌寒自学python第0194天
+区块链学习第108天
+NFT005继续erc165接口标准
+（文末有具体的学习过程录屏视频地址等）
+
+【主要内容】
+今天继续学习了解ntf的相关知识，并开始接触erc721合约标准。继续研究了erc165接口，共耗时20分钟。
+（此外整理作笔记花费了约18分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【第一次认真理解了solidity的库】
+昨天批注完了一个完整的的检测接口的erc165合约的库（其实是今天才发现原来不是一个合约，是一个库），但库能直接发布吗？我什么都不知道，才发现自己从来没有学习过有关solidity的库的知识。
+经过今天的学习，认识到solidity的库是类似于合约的一种中间件，可以反复使用（包括已经部署到合约上之后，都可以被别的合约调用），之前在写众筹合约的时候我其实是使用过库的，不过当时 不是重点学习。
+库的基本知识如下：
+来源于博文：
+https://www.jianshu.com/p/2a49b4e2ee58
+Solidity提供了Library的概念来实现代码重用，它可以被多个不同的智能合约调用。大家可以把library想象成在面向对象语言中的static类中的static函数。 Library在部署到区块链上时是很类似普通的智能合约的。这也允许大家可以使用别人部署的Library，但要十分小心的是使用非自己建立的、部署的library需要承担一定的安全风险。
+
+【嵌入在合约中的库的使用】
+今天主要了解了那种没有部署到以太坊网络上的库，就是说，这时候的库还是一个sol文件。
+这种库的使用方法有以下几种：
+来自于博文:
+https://www.cnblogs.com/wanghui-garcia/p/9590541.html
+一、像使用一个实例化的对象一样，使用类名称来直接使用库并用点连接符引用库内部的方法及其它公开对象。
+下面的内容摘录自上面提到的博文：
+使用库合约的合约，可以将库合约视为隐式的父合约(base contracts)，当然它们不会显式的出现在继承关系中。意思就是不用写is来继承，直接可以在合约中使用：
+
+```
+library Set {
+  struct Data { mapping(uint => bool) flags; }
+}
+
+contract C {
+    Set.Data knownValues;
+}
+```
+
+但调用库函数的方式非常类似，如库L有函数f()，使用L.f()即可访问。此外，internal的库函数对所有合约可见，如果把库想像成一个父合约就能说得通了。当然调用内部函数使用的是internal的调用惯例，这意味着所有internal类型可以传进去，memory类型则通过引用传递，而不是拷贝的方式。
+```
+library Set {
+  // We define a new struct datatype that will be used to
+  // hold its data in the calling contract.
+  struct Data { mapping(uint => bool) flags; }
+
+  // Note that the first parameter is of type "storage
+  // reference" and thus only its storage address and not
+  // its contents is passed as part of the call. （意思是说这是个引用传递） This is a
+  // special feature of library functions.  It is idiomatic（就是惯例都把第一个变量命名为self，当然你也可以命名为其他的）
+  // to call the first parameter 'self', if the function can
+  // be seen as a method of that object.
+  function insert(Data storage self, uint value)
+      returns (bool)
+  {
+      if (self.flags[value])
+          return false; // already there
+      self.flags[value] = true;
+      return true;
+  }
+
+  function remove(Data storage self, uint value)
+      returns (bool)
+  {
+      if (!self.flags[value])
+          return false; // not there
+      self.flags[value] = false;
+      return true;
+  }
+
+  function contains(Data storage self, uint value)
+      returns (bool)
+  {
+      return self.flags[value];
+  }
+}
+
+
+contract C {
+    Set.Data knownValues;
+
+    function register(uint value) {
+        // The library functions can be called without a
+        // specific instance of the library, since the
+        // "instance" will be the current contract.
+        if (!Set.insert(knownValues, value))
+            throw;
+    }
+    // In this contract, we can also directly access knownValues.flags, if we want.
+}
+```
+上面的例子中：
+    •    Library定义了一个数据结构体struct Data，用来在调用的合约中使用(库本身并未实际存储的数据)。如果函数需要操作数据，这个数据一般是通过库函数的第一个参数传入(Data storage self)，按惯例会把参数名定为self。
+    •    另外一个需要留意的是上例中self的类型是storage，那么意味着传入的会是一个引用，而不是拷贝的值，那么修改它的值，会同步影响到其它地方，俗称引用传递，非值传递。
+    •    库函数的使用不需要实例化，c.register函数中可以看出是直接使用Set.insert。但实际上当前的这个合约本身就是它的一个实例。
+    •    这个例子中，c可以直接访问knownValues。虽然这个值主要是被库函数使用的
+
+对比普通合约来说，库的限制：
+    •    无状态变量(state variables)。
+    •    不能继承或被继承
+    •    不能接收ether。
+
+二、使用“附着”（using for）的申明方法来使用库及其中的方法
+1.附着的理解 
+（下面的内容摘录自：https://www.cnblogs.com/wanghui-garcia/p/9590541.html）
+“指令using A for B;用来附着库里定义的函数(从库A)到任意类型B。这些函数将会默认接收调用函数对象的实例作为第一个参数。语法类似，python中的self变量一样。using A for *的效果是，库A中的函数被附着在做任意的类型上。在这两种情形中，所有函数，即使那些第一个参数的类型与调用函数的对象类型不匹配的，也被附着上了。类型检查是在函数被真正调用时，函数重载检查也会执行。”
+
+初读起来这很费解啊，然后，看了示范代码之后，明白了：
+```
+library Set {
+  struct Data { mapping(uint => bool) flags; }
+  function insert(Data storage self, uint value)
+      returns (bool)
+  {
+      if (self.flags[value])
+          return false; // already there
+      self.flags[value] = true;
+      return true;
+  }
+
+  function remove(Data storage self, uint value)
+      returns (bool)
+  {
+      if (!self.flags[value])
+          return false; // not there
+      self.flags[value] = false;
+      return true;
+  }
+
+  function contains(Data storage self, uint value)
+      returns (bool)
+  {
+      return self.flags[value];
+  }
+}
+//-----上面库的代码结束----------
+//-----下面的合约中，将使用using for的试来申明对库的引用（这就是附着方式使用库）
+contract C {
+    using Set for Set.Data; // this is the crucial change
+    Set.Data knownValues;
+
+    function register(uint value) {
+        // Here, all variables of type Set.Data have
+        // corresponding member functions.
+        // The following function call is identical to
+        // Set.insert(knownValues, value)
+        if (!knownValues.insert(value))
+            throw;
+    }
+}
+```
+其实就是本来要访问的话的语句是
+Set.insert(knownValues, value)，
+现在是
+knownValues.insert(value)，
+即将库中的函数都附着在了结构体struct Data上，因为库中的函数的第一个参数self的声明其实也是这个结构体（Data），附着后调用时就可以省略掉第一个参数了，因为它默认接收调用函数对象的实例作为第一个参数。
+再比如下面的例子：
+```
+library Search {
+    function indexOf(uint[] storage self, uint value)
+
+contract C {
+    using Search for uint[];
+    uint[] data;
+    //这样调用就可以变成：
+    data.indexOf(value);
+```
+2.然后我看了一下我之前学习批注的那个solidity的库代码，果然发现它其中的全部函数的第一个形参都是同一类型的address，而且形参名称全部一样，都是_address
+我想这就是为了方便通过附着的方式来使用吧。
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【原文地址】
+https://www.941xue.com/content.aspx?id=1714 
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/354416749 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1J54y1m7i1/ 
+
+
