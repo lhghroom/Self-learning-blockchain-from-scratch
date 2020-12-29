@@ -1,0 +1,172 @@
+【主要内容】
+今天继续学习了解ntf的相关知识，今天开始批注分析从github上获取的erc721合约的代码，添加自己的理解并批注，共耗时31分钟。
+（此外整理作笔记花费了约22分钟）
+详细学习过程见文末学习过程屏幕录像。
+【今天批注的ERC721的智能合约】
+文件名：
+AssetRegistryStorage.sol
+这个文件是一个基类合约，声明了一个NFT资产合约的用于将NFT资产信息登记到区块中的状态变量（storage方式），声明的状态变量主要是一些Mapping类型的映射表。
+```
+pragma solidity ^0.4.18;
+
+contract AssetRegistryStorage {
+
+  string internal _name;
+  string internal _symbol;
+  string internal _description;
+
+  /**
+   * Stores the total count of assets managed by this registry
+   * 存储此注册表管理的资产总数（就是记录下合约本身总共管理着多少个nft资产）
+   */
+  uint256 internal _count;
+
+  /**
+   * Stores an array of assets owned by a given account
+   *存储给定帐户拥有的NFT资产s的映射表
+   */
+  mapping(address => uint256[]) internal _assetsOf;
+
+  /**
+   * Stores the current holder of an asset
+   * 存储指定ID的NFT资产的当前持有者的地址的映射表
+   */
+  mapping(uint256 => address) internal _holderOf;
+
+  /**
+   * Stores the index of an asset in the `_assetsOf` array of its holder
+   * 将资产的索引存储在其持有者的“_assetsOf”数组中,记录下指定ID的NFT在映射表_assectsOf中的INDEX值。
+   */
+  mapping(uint256 => uint256) internal _indexOfAsset;
+
+  /**
+   * Stores the data associated with an asset
+   * 存储指定ID的NFT资产的真实URL地址（可以传统的HTTP的地址，也可以是区块链的IPFS这样的存储地址
+   */
+  mapping(uint256 => string) internal _assetData;
+
+  /**
+   * For a given account, for a given operator, store whether that operator is
+   * allowed to transfer and modify assets on behalf of them.
+   * 对于指定的节点（第一个address),是否这个节点已经授权指定的节点（第二个address)来处理自己（第一个address)的nft资产，记录的值是bool类型的（最后一个bool)
+   */
+  mapping(address => mapping(address => bool)) internal _operators;
+
+  /**
+   * Approval array
+   * 记录下指定ID的NFT已经授权给哪个ADDRESS去处理。？
+   */
+  mapping(uint256 => address) internal _approval;
+}
+```
+然后继续分析了文件：
+ERC721Base.sol
+已批注的部分内容如下：
+```
+pragma solidity ^0.4.18;
+
+import './SafeMath.sol';  //这是一个library
+
+import './AssetRegistryStorage.sol';  //资产登记所需要的基类全约，其中声明了各种需要登记到区块中的（变量类型为storage)mapping表变量
+
+import './IERC721Base.sol';  //这儿声明了erc721的interface
+
+import './IERC721Receiver.sol';  //在这个文件中声明了一个Interface,声明了让合约可以接收nft的函数onERC721Received
+
+import './ERC165.sol';  //erc165的interface
+
+contract ERC721Base is AssetRegistryStorage, IERC721Base, ERC165 {
+  //作为基类合约的IERC721Base和ERC165中声明的只是一个interface，但仍然可以被当作基类合约使用。
+  using SafeMath for uint256;  //这儿使用了库 SafeMath.sol中的内容
+
+  // Equals to `bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"))`
+  bytes4 private constant ERC721_RECEIVED = 0x150b7a02; //ERC165接口需要的常量，表示 合约是否可以接收 NFT资产的标识
+
+  bytes4 private constant InterfaceId_ERC165 = 0x01ffc9a7; //ERC165需要的常量，表示合约是否支持erc165接口
+  /*
+   * 0x01ffc9a7 ===
+   *   bytes4(keccak256('supportsInterface(bytes4)'))
+   */
+
+  bytes4 private constant Old_InterfaceId_ERC721 = 0x7c0633c6;
+  bytes4 private constant InterfaceId_ERC721 = 0x80ac58cd;  //ERC721需要的常量，表示合约是否支持erc721接口
+   /*
+   * 0x80ac58cd ===
+   *   bytes4(keccak256('balanceOf(address)')) ^
+   *   bytes4(keccak256('ownerOf(uint256)')) ^
+   *   bytes4(keccak256('approve(address,uint256)')) ^
+   *   bytes4(keccak256('getApproved(uint256)')) ^
+   *   bytes4(keccak256('setApprovalForAll(address,bool)')) ^
+   *   bytes4(keccak256('isApprovedForAll(address,address)')) ^
+   *   bytes4(keccak256('transferFrom(address,address,uint256)')) ^
+   *   bytes4(keccak256('safeTransferFrom(address,address,uint256)')) ^
+   *   bytes4(keccak256('safeTransferFrom(address,address,uint256,bytes)'))
+   */
+
+  //
+  // Global Getters
+  //
+
+  /**
+   * @dev Gets the total amount of assets stored by the contract 获取当前合约管理着多少个NFT的总数量 
+   * @return uint256 representing the total amount of assets
+   */
+  function totalSupply() external view returns (uint256) {
+    return _totalSupply(); //通过调用下一个函数到获取
+  }
+  function _totalSupply() internal view returns (uint256) {
+    return _count;  //状态变量（全局变量）_count是在sol文件AssetRegistryStorage.sol中声明的
+  }
+
+  //
+  // Asset-centric getter functions 查询有关NFT的所有者等相关信息的操作
+  //
+
+  /**
+   * @dev Queries what address owns an asset. This method does not throw. 传入NFT的ID值：assetId，以查询得到此NFT资产的拥有人是谁。
+   * In order to check if the asset exists, use the `exists` function or check if the
+   * return value of this call is `0`.
+   * @return uint256 the assetId
+   */
+  function ownerOf(uint256 assetId) external view returns (address) {
+    return _ownerOf(assetId);
+  }
+  function _ownerOf(uint256 assetId) internal view returns (address) {
+    return _holderOf[assetId];
+  }
+```
+到今天学习的最后，发现了一个现象：
+此合约中书写的任何一个view方式的 读取值的函数，都由两个函数组合，其中一个是 external方式的，另一个是internal方式的，external方式那个函数应当是公开供与合约交互节点调用的，面是internal方式那个函数是真正在执行读取操作的函数，这样写的目的是什么？
+有待我复习下internal关键字和external关键字的异同，再作深入思考 。
+也恳请高手给予指导，不胜感激。
+
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址： 
+
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【原文地址】
+https://www.941xue.com/content.aspx?id=1724 
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/356369085 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1yp4y1e7Qg/ 
+
