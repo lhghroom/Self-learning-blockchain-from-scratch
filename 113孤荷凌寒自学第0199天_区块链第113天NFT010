@@ -1,0 +1,99 @@
+孤荷凌寒自学python第0199天
+区块链学习第113天
+NFT010继续erc721接口标准
+（文末有具体的学习过程录屏视频地址等）
+
+【主要内容】
+今天继续学习了解ntf的相关知识，今天继续分析erc721合约的接口并手动逐字母打一遍，并自己作自个儿可以理解的注释批注，共耗时31分钟。
+（此外整理作笔记花费了约18分钟）
+详细学习过程见文末学习过程屏幕录像。
+【今天批注的ERC721的智能合约】
+```
+pragma solidity ^0.4.25;
+
+//这儿声明的是erc721合约的基础协议合约
+//--我这儿是直接当作基础合约来写的，看github上都是直接声明为interface来写的。
+contract ERC721{
+    //下面四个方法是与erc20相兼容的合约接口
+    function name() constant returns (string name); //nft的总的名称
+    function symbol() constant returns (string symbol); //nft的标签缩写
+    function totalSupply() constant returns (uint256 totalSupply); //本nft的总数
+    function balanceOf() constant returns (uint balance); //查询指定的节点地址的余额（即nft的总数）
+
+    //用以查询或授权或转移nft所有权及相关信息的接口
+    //第一个是查询指定的nft（由唯一的ID来指定）的归属是属于哪个节点地址的
+    function ownerOf(uint256 _tokenId) constant returns(address owner);
+    //第二个方法是，由当前调用合约的节点授权给形参 _to 表示 的节点可以使用自己哪个_tokenId 的NFT
+    function approve(address _to,uint256 _tokenId);
+    //下一方法是授权全部NFT，是博文中有的：https://www.cnblogs.com/tinyxiong/p/8648652.html
+    function setApprovalForAll(address _operator, bool _approved);
+    //第三个方法是，当接受某节点的授权后，接受授权方开始进行NFT的转移 
+    function takeOwnership(uint256 _tokenId); //从授权方的节点把指定tokenId 的NFT 转移 到接受授权方的节点下
+    //第四个方法是，转移指定ID的NFT，是指从调用合约的当前节点名下，转移到形参 _to 指定的节点名下？
+    function transfer(address _to,uint256 _tokenId) payable;
+    //第五个方法是，每个非同质代币所有者可以一次拥有1个以上的代币。每个代币通过唯一的ID来查询，然而，追踪某个用户可能拥有的每个代币也许存在困难。为此，合约记录着每个用户拥有的所有代币的ID。因此，某个用户拥有的每个代币都可以在该用户拥有的代币列表（数组）中通过索引检索到。
+    //这个解释是从网络上复制的，所以并没有完全理解 。
+    //上面的解释来自于链接：https://www.jianshu.com/p/998ebfa05098
+    function tokenOfOwnerByIndex(address _owner,uint256 _index) constant returns (uint tokenId);
+    //上一个函数 ，传入的形参 _index 应当指的是在合约内部维护 有一个 mapping类型的状态 变量，形参_index则表示指定要查询的那个Nft在这个被维护的mapping中的index值
+    //如果是这样的话，那么此函数返回 的就是找到的那个 nft的真正 的tokenid
+    //初步理解如上。
+    //第六个方法是：查询授权状态，获取单个Ntf是被哪个节点地址接受授权了
+    function getApproved(uint256 _tokenId) view returns (address);
+    //第七个方法是：查询是否把所有Nft都授权给另外的节点了
+    function isApprovedForAll(address _owner, address _operator) view returns (bool);
+    //第八个方法是：将授权方授权的nft转移给第三方节点
+    function transferFrom(address _from, address _to, uint256 _tokenId) payable;
+    //第九个方法是：也是将授权方授权的Nft转移给第三方节点，但支持第三方节点是一个合约地址（会要求在函数中实现对此合约是否支持接收erc721代币的检查）
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes data) payable;
+    function safeTransferFrom(address _from, address _to, uint256 _tokenId) external payable;
+
+
+    //最后一个方法用来获取NFT的外部链接（这个链接指向真正 的NFT完整数据所在）
+    //返回指定tokenID的NFT的链接到链的外部 的存放 地址 的URL
+    //因为区块链中只存储了一小部分数据，可能无法把那些 大型的艺术品存入到区块中，那么这个时候，存放在区块中只能是外部链接的Ｕｒｌ
+    function tokenMetadata(uint256 _tokenId) constant returns(string infoUrl);
+
+    //下面要申明 的是 事件 
+    event Transfer(address indexed _from,address indexed _to,uint256 _tokenId);
+    event Approval(address indexed _owner,address indexed _approved,uint256 _tokenId);
+    //下面这一个事件， 是博文中有的：https://www.cnblogs.com/tinyxiong/p/8648652.html
+    event ApprovalForAll(address indexed _owner, address indexed _operator, bool _approved);
+    //上一个事件 的理解是，这是当一个节点将自己名下的全部NFT都授权给另一个节点使用之后，引发的事件广播 
+
+}
+
+
+```
+我这儿的书写的是真正的想作为基础的合约，但发现其实更多的博客中都是直接声明一个Interface就可以了。
+最后在github上找到了一个完整的nft的智能合约。
+https://github.com/0xcert/ethereum-erc721
+示例代码中，也是直接把erc721和erc165声明为一个interface就可以了，然后也可以作为基类合约被后面的具体合约所继承。
+明天将继续学习分析批注这个源代码。
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【原文地址】
+https://www.941xue.com/content.aspx?id=1723 
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/356019170 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1Xt4y1S7U5/ 
+
+
