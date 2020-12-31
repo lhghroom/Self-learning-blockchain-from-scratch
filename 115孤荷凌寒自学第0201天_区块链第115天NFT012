@@ -1,0 +1,226 @@
+笔记合集在github上:
+ https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+
+【主要内容】
+今天继续学习了解ntf的相关知识，今天继续批注分析从github上获取的erc721合约的代码，添加自己的理解并批注，共耗时32分钟。
+（此外整理作笔记花费了约14分钟）
+详细学习过程见文末学习过程屏幕录像。
+【今天批注的ERC721的智能合约】
+文件：
+ERC721Base.sol
+已批注的部分内容如下：
+```
+pragma solidity ^0.4.18;
+
+import './SafeMath.sol';  //这是一个library
+
+import './AssetRegistryStorage.sol';  //资产登记所需要的基类全约，其中声明了各种需要登记到区块中的（变量类型为storage)mapping表变量
+
+import './IERC721Base.sol';  //这儿声明了erc721的interface
+
+import './IERC721Receiver.sol';  //在这个文件中声明了一个Interface,声明了让合约可以接收nft的函数onERC721Received
+
+import './ERC165.sol';  //erc165的interface
+
+contract ERC721Base is AssetRegistryStorage, IERC721Base, ERC165 {
+  //作为基类合约的IERC721Base和ERC165中声明的只是一个interface，但仍然可以被当作基类合约使用。
+  using SafeMath for uint256;  //这儿使用了库 SafeMath.sol中的内容
+
+  // Equals to `bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"))`
+  bytes4 private constant ERC721_RECEIVED = 0x150b7a02; //ERC165接口需要的常量，表示 合约是否可以接收 NFT资产的标识
+
+  bytes4 private constant InterfaceId_ERC165 = 0x01ffc9a7; //ERC165需要的常量，表示合约是否支持erc165接口
+  /*
+   * 0x01ffc9a7 ===
+   *   bytes4(keccak256('supportsInterface(bytes4)'))
+   */
+
+  bytes4 private constant Old_InterfaceId_ERC721 = 0x7c0633c6;
+  bytes4 private constant InterfaceId_ERC721 = 0x80ac58cd;  //ERC721需要的常量，表示合约是否支持erc721接口
+   /*
+   * 0x80ac58cd ===
+   *   bytes4(keccak256('balanceOf(address)')) ^
+   *   bytes4(keccak256('ownerOf(uint256)')) ^
+   *   bytes4(keccak256('approve(address,uint256)')) ^
+   *   bytes4(keccak256('getApproved(uint256)')) ^
+   *   bytes4(keccak256('setApprovalForAll(address,bool)')) ^
+   *   bytes4(keccak256('isApprovedForAll(address,address)')) ^
+   *   bytes4(keccak256('transferFrom(address,address,uint256)')) ^
+   *   bytes4(keccak256('safeTransferFrom(address,address,uint256)')) ^
+   *   bytes4(keccak256('safeTransferFrom(address,address,uint256,bytes)'))
+   */
+
+  //
+  // Global Getters
+  //
+
+  /**
+   * @dev Gets the total amount of assets stored by the contract 获取当前合约管理着多少个NFT的总数量 
+   * @return uint256 representing the total amount of assets
+   */
+  function totalSupply() external view returns (uint256) {
+    return _totalSupply(); //通过调用下一个函数到获取
+  }
+  function _totalSupply() internal view returns (uint256) {
+    return _count;  //状态变量（全局变量）_count是在sol文件AssetRegistryStorage.sol中声明的
+  }
+
+  //注意到，这儿的每一个方法，都进行了安全隔离，对外，采用external关键字修饰，对内（包括对下级合约——也就是把当前合约当作父级合约的子合约）使用internal关键字。
+  /*
+
+    public与private
+    对于public和private，相信学过其他主流语言的人都能明白：
+
+    public修饰的变量和函数，任何用户或者合约都能调用和访问。
+    private修饰的变量和函数，只能在其所在的合约中调用和访问，即使是其子合约也没有权限访问。
+    external和internal
+    除 public 和 private 属性之外，Solidity 还使用了另外两个描述函数可见性的修饰词：internal（内部） 和 external（外部）。
+
+    internal 和 private 类似，不过， 如果某个合约继承自其父合约，这个合约即可以访问父合约中定义的“内部”函数。
+    external 与public 类似，只不过这些函数只能在合约之外调用 - 它们不能被合约内的其他函数调用。
+
+    internal、private、external、public这4种关键字都是可见性修饰符，互不共存(也就是说，同一时间只能使用这四个修饰字中的一个)
+    ————————————————
+    版权声明：本文为CSDN博主「黄嘉成」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+    原文链接：https://blog.csdn.net/qq_33829547/java/article/details/80460013
+
+  */
+  //
+  // Asset-centric getter functions 查询有关NFT的所有者等相关信息的操作
+  //
+
+  /**
+   * @dev Queries what address owns an asset. This method does not throw. 传入NFT的ID值：assetId，以查询得到此NFT资产的拥有人是谁。
+   * In order to check if the asset exists, use the `exists` function or check if the
+   * return value of this call is `0`.
+   * @return uint256 the assetId
+   */
+  function ownerOf(uint256 assetId) external view returns (address) {
+    return _ownerOf(assetId);
+  }
+  function _ownerOf(uint256 assetId) internal view returns (address) {
+    return _holderOf[assetId];  //状态变量（全局变量）_holderOf是在sol文件AssetRegistryStorage.sol中声明的
+  }
+
+  //
+  // Holder-centric getter functions
+  //
+  /**
+   * @dev Gets the balance of the specified address 查看一个节点（形参 owner指定）拥有总共多少个NFT
+   * @param owner address to query the balance of
+   * @return uint256 representing the amount owned by the passed address
+   */
+  function balanceOf(address owner) external view returns (uint256) {
+    return _balanceOf(owner);
+  }
+  function _balanceOf(address owner) internal view returns (uint256) {
+    return _assetsOf[owner].length; //状态变量（全局变量）_assetsOf是在sol文件AssetRegistryStorage.sol中声明的
+  }
+
+  //
+  // Authorization getters  获取当前资产授权状态的函数方法
+  //
+
+  /**
+   * @dev Query whether an address has been authorized to move any assets on behalf of someone else  查询 形参 assetHolder 节点 是否已经把 它的所有NFT资产都授权给了 形参 operator 节点，允许 形参 operator 节点 全权处理（包括移动）这些NFT资产。
+   * @param operator the address that might be authorized
+   * @param assetHolder the address that provided the authorization
+   * @return bool true if the operator has been authorized to move any assets
+   */
+  function isApprovedForAll(address assetHolder, address operator)
+    external view returns (bool)
+  {
+    return _isApprovedForAll(assetHolder, operator);
+  }
+  function _isApprovedForAll(address assetHolder, address operator)
+    internal view returns (bool)
+  {
+    return _operators[assetHolder][operator]; //状态变量（全局变量）_operators是在sol文件AssetRegistryStorage.sol中声明的
+  }
+
+  /**
+   * @dev Query what address has been particularly authorized to move an asset 查询指定ID的NFT资产（形参 assetId 指定） 当前 已经被 授权给哪个 节点 处理。
+   * @param assetId the asset to be queried for
+   * @return bool true if the asset has been approved by the holder
+   */
+  function getApproved(uint256 assetId) external view returns (address) {
+    return _getApprovedAddress(assetId);
+  }
+  function getApprovedAddress(uint256 assetId) external view returns (address) {
+    return _getApprovedAddress(assetId);
+  }
+  function _getApprovedAddress(uint256 assetId) internal view returns (address) {
+    return _approval[assetId];
+  }
+
+  /**
+   * @dev Query if an operator can move an asset. 查询 一个 节点（形参 operator 指定）是不是已经 被 授权处理 指定ID的NFT（形参 assetId）
+   * @param operator the address that might be authorized
+   * @param assetId the asset that has been `approved` for transfer
+   * @return bool true if the asset has been approved by the holder
+   */
+  function isAuthorized(address operator, uint256 assetId) external view returns (bool) {
+    return _isAuthorized(operator, assetId);
+  }
+  function _isAuthorized(address operator, uint256 assetId) internal view returns (bool)
+  {
+    require(operator != 0); //检查 节点地址是否为空
+    address owner = _ownerOf(assetId);  //得到指定ID的NFT本身是属于哪个节点地址的
+    if (operator == owner) {   //如果指定ID的NFT的归属节点就是当前 要查询 的operator 那么，就直接返回TRUE
+      return true;
+    }
+    return _isApprovedForAll(owner, operator) || _getApprovedAddress(assetId) == operator; //这儿使用了又保险的方法来获取值，调用了本合约之前定义的两个方法。
+  }
+
+  //
+  // Authorization  执行授权等操作的函数方法区域
+  //
+
+  /**
+   * @dev Authorize a third party operator to manage (send) msg.sender's asset 当前调用合约的节点（msg.sender)调用此方法来向指定的节点（形参 operator 指定）授权允许其 操作自己的所有NFT资产，或撤消这个授权——是发起授权还是撤消授权由形参 authorized 的BOOL值决定
+   * @param operator address to be approved
+   * @param authorized bool set to true to authorize, false to withdraw authorization
+   */
+  function setApprovalForAll(address operator, bool authorized) external {
+    return _setApprovalForAll(operator, authorized);
+  }
+  function _setApprovalForAll(address operator, bool authorized) internal {
+    if (authorized) { //如果是发起授权
+      require(!_isApprovedForAll(msg.sender, operator));
+      _addAuthorization(operator, msg.sender);  //这个方法在本合约稍后定义的，直接操纵 映射表  _operators 来完成
+    } else { //如果是撤消授权
+      require(_isApprovedForAll(msg.sender, operator));
+      _clearAuthorization(operator, msg.sender); //这个方法在本合约稍后定义的，直接操纵 映射表  _operators 来完成
+    }
+    emit ApprovalForAll(msg.sender, operator, authorized); //广播这个事件，事件的定义在sol文件IERC721Base.sol中声明的
+  }
+```
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址： 
+
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【原文地址】
+https://www.941xue.com/content.aspx?id=1725 
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/356712955 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1uf4y1D7Kg/ 
