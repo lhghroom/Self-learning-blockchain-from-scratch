@@ -1,0 +1,123 @@
+孤荷凌寒自学第0207天
+区块链学习第121天
+NFT018继续erc721接口标准
+（文末有具体的学习过程录屏视频地址等）
+
+
+笔记合集在github上:
+ https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+
+【主要内容】
+今天继续学习了解ntf的相关知识，今天继续批注分析从github上获取的erc721合约的代码，添加自己的理解并批注，共耗时35分钟。
+（此外整理作笔记花费了约28分钟）
+详细学习过程见文末学习过程屏幕录像。
+【今天发现了整个合约继承关系图谱中的另外几个sol文件】
+StandardAssetRegistryTest.sol
+这个合约继承自合约【FullAssetRegistry】
+现在明白过来：这个合约应当才是最后一层级的最终可以用于部署的合约。
+Exchange.sol
+这个合约引用了合约文件StandardAssetRegistryTest.sol
+但却不是继承自这个合约，只是把合约当着类来使用，而且实例化为一个对象再使用，这种用法之前没有学习过，非常陌生，还有些地方今天没有理解到。
+
+【今天批注的StandardAssetRegistryTest.sol文件内容】
+```
+pragma solidity ^0.4.18;
+
+import './FullAssetRegistry.sol';
+//这个合约是最终可供部署的合约
+contract StandardAssetRegistryTest is FullAssetRegistry {
+
+  constructor() public {
+    _name = "ghlhNft"; //给nft命名
+    _symbol = "GHLH"; //标识代号
+    _description = "ghlh's nft assets"; //描述
+  }
+
+  function isContractProxy(address addr) public view returns (bool) {
+    return _isContract(addr); //在基类合约 ERC721Base.sol 中定义的一个仅供合约内部调用的方法
+  }
+
+  //生成    ？ 这个方法供外部调用。beneficiary是受益人节点地址，也就是把指定ID的NFT资产登记到beneficiary节点名下
+  function generate(uint256 assetId, address beneficiary) public {
+    _generate(assetId, beneficiary); //在基类合约 ERC721Base.sol 中定义的一个仅供合约内部调用的方法
+  }
+
+  //让指定ID的NFT资产（由形参assetId指定）从现在的拥有在手中 脱离（转移开），就是使其现拥有者不再拥有这个NFT资产，本函数仅供本合约内部调用
+  function destroy(uint256 assetId) public {
+    _destroy(assetId); //在基类合约 ERC721Base.sol 中定义的一个仅供合约内部调用的方法
+  }
+
+  // Problematic override on truffle 转移资产的方法
+  function safeTransfer(address from, address to, uint256 assetId, bytes data) public {
+    return _doTransferFrom(from, to, assetId, data, true); //在基类合约 ERC721Base.sol 中定义的一个仅供合约内部调用的方法//这个仅供合约内部使用的函数才是真正的实现NFT资产转移 的函数过程
+  }
+}
+```
+【批注的文件Exchange.sol的内容】
+```
+pragma solidity ^0.4.18;
+
+import './StandardAssetRegistryTest.sol';
+//这个合约的目的是，对NFT 资产进行 定价 （amount ）并进行【交易】
+//这个合约引用了 StandardAssetRegistryTest.sol 却没有继承它，目前感觉是直接把StandardAssetRegistryTest当作了一个类来使用，就是说可以直接作为声明一个新类型变量的标识 关键字
+contract Exchange {
+  // From asset to amount
+  mapping(uint256 => uint256) internal _orders; //这个映射表用于记录下 每个ID(第一个uint256)的NFT资产的定价(第二个uint256)
+
+  StandardAssetRegistryTest internal nonFungible; //目前感觉是直接把StandardAssetRegistryTest当作了一个类来使用，就是说可以直接作为声明一个新类型变量的标识 关键字
+  //现在 nonFungible 就可以看作 合约 （类）StandardAssetRegistryTest 实例化后得到的一个具体对象
+
+  constructor(address _nonFungible) public { //本合约 的建构函数 有一个形参
+    nonFungible = StandardAssetRegistryTest(_nonFungible); //这儿把这个形参传递给 合约 标识，没有理解 
+    //现在 nonFungible 是一个具体的实例化后的对象
+  }
+
+  //指定ID的NFT资产的拥有节点把他自己的这个NFT资产定个价出售（挂出来）
+  function sell(uint256 assetId, uint256 amount) public {
+    require(nonFungible.ownerOf(assetId) == msg.sender); //现在nonFungible.ownerOf使用的方法就是基类合约中的方法
+    _orders[assetId] = amount; //在映射表中登记这个资产的目前定价 amount
+  }
+
+  //购买指定ID的NFT资产的方法
+  function buy(uint256 assetId) payable public {
+    require(msg.value >= _orders[assetId]); //验证当前调用合约的节点 发送的 代币（ETH）的数量是否大于等于这个指定ID资产的 当前 定价
+    require(_orders[assetId] > 0); //还得验证这个资产的定价是否不是 0
+    address owner = nonFungible.ownerOf(assetId); //在购买完成前，这个资产是属于哪个节点的
+    owner.transfer(_orders[assetId]); //原拥有资产的节点 获得 ETH (就是卖方收钱了)
+    uint remaining = msg.value - _orders[assetId]; //如果当前调用合约的节点发送的ETH大于此资产的实际定价，那么求出 要找零 的余额。
+    if (remaining > 0) {
+     msg.sender.transfer(remaining); //找零给买家
+    }
+    nonFungible.safeTransferFrom(owner, msg.sender, assetId); //完成这个NFT资产的归属节点的转移 （交货）
+  }
+}
+```
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【原文地址】
+https://www.941xue.com/content.aspx?id=1737 
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/358697265 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV19D4y1o7SL/ 
+
+
