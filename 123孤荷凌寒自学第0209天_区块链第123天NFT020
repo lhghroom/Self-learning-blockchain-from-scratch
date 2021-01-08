@@ -1,0 +1,76 @@
+【主要内容】
+今天继续学习了解ntf的相关知识，今天继续批注分析从github上获取的erc721合约的代码，添加自己的理解并批注，共耗时31分钟。
+（此外整理作笔记花费了约22分钟）
+详细学习过程见文末学习过程屏幕录像。
+【今天按整个项目sol文件的关系图谱通过remix进行合约部署】
+ 
+1.最先部署的是合约文件：Exchange.sol
+部署成功后，只看到了两个公开方法：
+EXCHANGE AT 0X412...2FBB9 (BLOCKCHAIN)
+BUY    uint256 assetId
+SELL    uint256 assetId, uint256 amount
+这很显然说明，因为Exchange.sol并不是继承自合约StandardAssetRegistryTest.sol，仅仅是添加了对合约StandardAssetRegistryTest.sol的引用而以，因此 在部署后的Exchange.sol合约中，并没有StandardAssetRegistryTest.sol合约中的任何方法与对象。
+2.特别发现的是
+在remix的部署界面，当选中文件Exchange.sol，然后进入【部署】选项卡的功能后
+有一个constract 选项
+在它的列表中，列出了所有与Exchange.sol文件相关的合约：
+AssetRegistryStorage-browser/Exchange.sol
+ERC165-browser/Exchange.sol
+ERC721Base-browser/Exchange.sol
+ERC721Enumerable-browser/Exchange.sol
+ERC721Metadata-browser/Exchange.sol
+Exchange-browser/Exchange.sol
+FullAssetRegistry-browser/Exchange.sol
+IERC721Base-browser/Exchange.sol
+IERC721Enumerable-browser/Exchange.sol
+IERC721Metadata-browser/Exchange.sol
+IERC721Receiver-browser/Exchange.sol
+SafeMath-browser/Exchange.sol
+StandardAssetRegistryTest-browser/Exchange.sol
+第一次部署我选择的就是：Exchange-browser/Exchange.sol
+这个选项，部署后，就是第1点中说明的那个情况。
+3.然后选择了上面选项中的：
+StandardAssetRegistryTest-browser/Exchange.sol
+进行部署
+部署后得到的可交互内容，包括了StandardAssetRegistryTest.sol中设计的全部方法与对象，还包括了其上层各父级的全部sol合约的全部公开对象。
+
+【对StandardAssetRegistryTest合约的公开方法进行测试】
+1.发现这个合约的铸币（生成一个新的NFT）非常简单：
+调用合约的
+generate
+方法，然后，指定两个参数：
+第一个参数是 nft 资产的ID，这个ID是可以由合约调用者自己指定的（如果要求是一个新的NFT，则ID不应当与之前合约中已经登记的ID值相同）；
+第二个参数是这个资产要给予哪个节点地址，经过测试发现，不管是哪个节点来调用合约 的这个方法，居然可以把新增加的NFT资产生成给任意一个节点地址。
+目前我得出的结论是：这种铸币的方法总感觉不很科学。
+2.测试了NFT资产归属查询的方法等都没有问题。
+【其它感受与收获】
+使用在线的remix来部署合约初学时确实省事方便，不过现在我的感觉是，这中间其实漏掉了很多重要的知识，比如现在这样一个复杂 的多个合约串联继承的合约体系，怎样去部署就是一个问题，而且网络上没有这方面的详细资料可用，只能摸着石头过河，进行尝试。
+当然在本地建立一个完整的的以太坊智能合约编辑，编译，部署，测试的完全环境，又非常的复杂，涉及多个方面的知识综合，也不容易。
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【原文地址】
+https://www.941xue.com/content.aspx?id=1739 
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/359035515 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1VT4y1c7Qp/ 
