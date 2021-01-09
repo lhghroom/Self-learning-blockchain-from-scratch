@@ -1,0 +1,113 @@
+【主要内容】
+今天继续学习了解ntf的相关知识，今天继续批注分析从github上获取的erc721合约的代码，添加自己的理解并批注，共耗时32分钟。
+（此外整理作笔记花费了约42分钟）
+详细学习过程见文末学习过程屏幕录像。
+【学会了remix在线调试的其中一个用法】
+今天一开始就准备使用remix的“DEPLOY & RUN TRANSACTIONS”功能，对昨天 已经部署的合约：StandardAssetRegistryTest.sol 得到的合约地址：
+0x4123B737C7eE8ed3352f950693149a535A52fbB9
+通过
+remix的“DEPLOY & RUN TRANSACTIONS”
+中的
+“At Address”
+方法重新加载这个地址上合约的所有公开方法，以测试交互。
+然而，发现，点击：
+“At Address”
+按钮后，合约中的任何公开方法都没有出现 ，只出现了一个通用的：
+Low level interactions
+CALLDATA
+交互功能，这个是将要调用的函数与参数变成CALLDATA格式后与合约进行交互。
+百思不得其解，我也尝试将remix切换回早期的旧版本，结果 发现自己还是用得不熟。
+几经折腾（这一折腾，时间就过去了16分钟），终于找到了remix的使用窍门，现总结如下：
+1.就算是通过 At Address方法来进行RUN指定合约所在地址上的已经部署过的智能合约，也必须先到“文件”选项卡，选中当时部署合约时选择的基准文件。
+什么是基准文件？
+昨天 我部署的合约，是在“文件”选项卡中，选择的“Exchange.sol”这个文件
+然后再到““DEPLOY & RUN TRANSACTIONS””选项卡，执行了合约部署
+这时在““DEPLOY & RUN TRANSACTIONS””选项卡的
+CONTRACT
+下拉列表中，会出现以文件“Exchange.sol”为基准的可以部署的合约列表：
+AssetRegistryStorage-browser/Exchange.sol
+ERC165-browser/Exchange.sol
+ERC721Base-browser/Exchange.sol
+ERC721Enumerable-browser/Exchange.sol
+ERC721Metadata-browser/Exchange.sol
+Exchange-browser/Exchange.sol
+FullAssetRegistry-browser/Exchange.sol
+IERC721Base-browser/Exchange.sol
+IERC721Enumerable-browser/Exchange.sol
+IERC721Metadata-browser/Exchange.sol
+IERC721Receiver-browser/Exchange.sol
+SafeMath-browser/Exchange.sol
+StandardAssetRegistryTest-browser/Exchange.sol
+这儿应当看到，这些列出来的，全部合约，最后都提到了““Exchange.sol””，所以我把最初我在“文件”选项卡选择的这个文件称为基准文件。
+2.现在就要在““DEPLOY & RUN TRANSACTIONS””选项卡的
+CONTRACT
+下拉列表中 选择我昨天已经部署的：
+StandardAssetRegistryTest-browser/Exchange.sol
+这个合约，一定要在这儿先选择这个合约“StandardAssetRegistryTest”
+3.现在才在““DEPLOY & RUN TRANSACTIONS””选项卡的
+At Address 功能右边输入昨天部署“StandardAssetRegistryTest”合约后得到的合约地址：
+0x61b84673A5768Fd046c98e69251C8f5493B44497
+再点击按钮“At Address”
+4.这时候在remix的““DEPLOY & RUN TRANSACTIONS””选项卡的
+Deployed Contracts
+区域才会出现我们想要测试与交互的这些合约及其其中的公开方法与对象。
+感觉非常复杂，当然这应当是有很多个文件多层继承的合约正确的使用方法，在remix的官方文档中是有使用介绍 的，可是全是英文，阅读比较困难，这也就说明，学好英语何其重要。
+【额外发现remix在部署合约时的一个操作特点】
+我的合约地址：0x61b84673A5768Fd046c98e69251C8f5493B44497
+是以exchange.sol文件作基准，部署的是文件“StandardAssetRegistryTest.sol”中的智能合约。
+而exchange.sol文件单独部署过一次，其部署的合约地址是：
+0x4123B737C7eE8ed3352f950693149a535A52fbB9
+今天我在
+At Address
+RUN的合约地址始终只是：
+0x61b84673A5768Fd046c98e69251C8f5493B44497
+（即以exchange.sol文件作基准，部署的是文件“StandardAssetRegistryTest.sol”中的智能合约）
+不过我发现，当我在remix的““DEPLOY & RUN TRANSACTIONS””选项卡的
+CONTRACT
+下拉列表中
+选中“Exchange-browser/Exchange.sol”这个合约进行RUN时，仍然可以获取到
+合约Exchange中的两个公开方法进行测试与交互。
+（今天对合约Exchange的测试与交互是失败的，错误原因的猜想在下面会总结）
+这就说明，当以”Exchange.sol”文件作基准部署“StandardAssetRegistryTest.sol”合约时，所有与之相关全部有引用关系的合约都被一起打包部署到了这个生成的合约地址上了。
+【对昨天没有理解部分代码的理解猜想】
+Exchange.sol
+的合约建构函数
+```
+
+  constructor(address _nonFungible) public { //本合约 的建构函数 有一个形参
+    nonFungible = StandardAssetRegistryTest(_nonFungible); //这儿把这个形参传递给 合约 标识，没有理解 
+    //猜想：形参_nonFungible 应当是 合约：StandardAssetRegistryTest.sol先部署后得到的合约地址，这儿直到的连接到这合约地址的作用。只是一种猜想。也就是先部署StandardAssetRegistryTest.sol，再部署本合约。
+    //现在 nonFungible 是一个具体的实例化后的对象
+  }
+```
+昨天 在部署” Exchange.sol”传递给形参_nonFungible的实参不是一个合约地址，而是我的测试钱包节点一的地址，我想这就是为什么今天对合约Exchange中的方法测试交互失败的原因。
+当然仅仅是猜测，今天未做验证，恳请高手给予指导，万分感激。
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址：https://www.941xue.com/content.aspx?id=1740  
+
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【原文地址】
+https://www.941xue.com/content.aspx?id=1740 
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/359664278 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1MT4y1c7vA/ 
