@@ -1,0 +1,310 @@
+主要内容】
+今天继续学习了解ntf的相关知识，今天开始修改原合约内容，根据自己的理解也加强其功能，今天完成了一处功能的修改。共耗时33分钟。
+（此外整理作笔记花费了约38分钟）
+详细学习过程见文末学习过程屏幕录像。
+【生成一个新NFT资产的方法去除了由调用合约者指定ID的参数，添加了资产URL的参数】
+其实只写了几行代码，但就花费了33分钟，都没有来得及去测试，效率比较低，事后分析效率低的原因是对solidity语言的基础语法及各类型变量的特征很不熟悉。
+首先更改了文件StandardAssetRegistryTest.sol中的方法
+generate
+方法
+修改后的代码如下：
+```
+//生成一个新资产，这个函数已被孤荷凌寒修改。 这个方法供外部调用。beneficiary是受益人节点地址，也就是把指定ID的NFT资产登记到beneficiary节点名下
+  //合约部署后测试发现：assetId这个形参可以自己指定一个不重复的uint256值，就等于完成了铸币（一个新的NFT）这样看来这个方法实际使用有很多问题
+  function generate(address beneficiary,string data) public {
+    uint256 assetId = _getnewfreeassetid(); //获取一个新的ID，在基类合约 ERC721Base.sol 中定义的一个仅供合约内部调用的方法
+    _generate(assetId, beneficiary); //登记这个新的NFT资产在基类合约 ERC721Base.sol 中定义的一个仅供合约内部调用的方法
+    //下面是孤荷凌寒补充的，增加这个ID资产的URL
+    _update(assetId,data); //这个方法是个仅供内部调用的方法在文件ERC721Metadata.sol中定义的
+  }
+
+  //上一个方法的原本版本的也方法可以保留，用着合约的拥有者可以任意指定一个无主的NFT资产的划拨。
+```
+然后在文件：AssetRegistryStorage.sol中添加了一个状态变量（数组）
+```
+uint256[] internal _assetsIds; //记录下本合约管理的所有NFT的ID列表
+```
+然后在文件 ERC721Base.sol 修改了方法
+_generate
+并添加了一个新的方法
+_getnewfreeassetid
+现在修改和新增部分的代码如下：
+```
+  //增加一个方法来获取assetId的下一个可用id序号
+  function _getnewfreeassetid() internal returns (uint256){
+    uint256 rr = 1;
+    if(_assetsIds.length > 0){
+      uint256 c = _assetsids.length;
+      for(uint256 i = 0;i < c;i++){
+        if(rr < _assetsIds[i]){
+          rr = _assetsIds[i];
+        }
+      }
+      rr = rr+1; //前面的循环只能取出 最大的一个ID，这儿要取得新 的ID ，所以得加上1
+    }      
+    return rr;
+  }
+
+  //实现让 节点beneficiary 获取指定ID的NFT资产（assetId这个形参指明了是哪个NFT资产），本函数仅供本合约内部调用
+  function _generate(uint256 assetId, address beneficiary) internal {
+    require(_holderOf[assetId] == 0); //首先检查一下，指定的NFT是否是 没有拥有者 的状态，如果是属于没有归属者的NFT才可以执行后续操作。
+
+    _addAssetTo(beneficiary, assetId); //然后用上面定义过的本合约专用的内部函数 把这个NFT转移给节点：beneficiary
+
+    bool isnewid = true;
+    if(_assetsIds.length > 0){
+      uint256 c = _assetsids.length;
+      for(uint256 i = 0;i < c;i++){
+        if(assetId == _assetsIds[i]){
+          isnewid = false;
+          break;
+        }
+      }
+    }else{
+      isnewid = true;
+    }
+    if(isnewid == true){
+      _assetsIds.push(assetId);
+    }
+
+    emit Transfer(0, beneficiary, assetId); //广播这一资产转移 的事件，从节点地址为0的节点转移给beneficiary代表的节点
+  }
+```
+【整理今天重新复习的关于Mapping类型的变量的知识】
+1.mapping类型是不可以直接获取length也不可以遍历的
+2.但官方有提供可以让mapping进行遍历的模块（库）
+找到相关的博文如下 ：
+官方库：https://github.com/ethereum/dapp-bin/blob/master/library/iterable_mapping.sol
+介绍的博文：https://blog.csdn.net/xiaomei1xiake2/article/details/81875258
+中了中文批注的博文：https://blog.csdn.net/The_Reader/article/details/83504990
+官方库的内容摘录如下：
+```
+/// @dev Models a uint -> uint mapping where it is possible to iterate over all keys.
+library IterableMapping
+{
+  struct itmap
+  {
+    mapping(uint => IndexValue) data;
+    KeyFlag[] keys;
+    uint size;
+  }
+  struct IndexValue { uint keyIndex; uint value; }
+  struct KeyFlag { uint key; bool deleted; }
+  function insert(itmap storage self, uint key, uint value) returns (bool replaced)
+  {
+    uint keyIndex = self.data[key].keyIndex;
+    self.data[key].value = value;
+    if (keyIndex > 0)
+      return true;
+    else
+    {
+      keyIndex = self.keys.length++;
+      self.data[key].keyIndex = keyIndex + 1;
+      self.keys[keyIndex].key = key;
+      self.size++;
+      return false;
+    }
+  }
+  function remove(itmap storage self, uint key) returns (bool success)
+  {
+    uint keyIndex = self.data[key].keyIndex;
+    if (keyIndex == 0)
+      return false;
+    delete self.data[key];
+    self.keys[keyIndex - 1].deleted = true;
+    self.size --;
+  }
+  function contains(itmap storage self, uint key) returns (bool)
+  {
+    return self.data[key].keyIndex > 0;
+  }
+  function iterate_start(itmap storage self) returns (uint keyIndex)
+  {
+    return iterate_next(self, uint(-1));
+  }
+  function iterate_valid(itmap storage self, uint keyIndex) returns (bool)
+  {
+    return keyIndex < self.keys.length;
+  }
+  function iterate_next(itmap storage self, uint keyIndex) returns (uint r_keyIndex)
+  {
+    keyIndex++;
+    while (keyIndex < self.keys.length && self.keys[keyIndex].deleted)
+      keyIndex++;
+    return keyIndex;
+  }
+  function iterate_get(itmap storage self, uint keyIndex) returns (uint key, uint value)
+  {
+    key = self.keys[keyIndex].key;
+    value = self.data[key].value;
+  }
+}
+
+// How to use it:
+contract User
+{
+  // Just a struct holding our data.
+  IterableMapping.itmap data;
+  // Insert something
+  function insert(uint k, uint v) returns (uint size)
+  {
+    // Actually calls itmap_impl.insert, auto-supplying the first parameter for us.
+    IterableMapping.insert(data, k, v);
+    // We can still access members of the struct - but we should take care not to mess with them.
+    return data.size;
+  }
+  // Computes the sum of all stored data.
+  function sum() returns (uint s)
+  {
+    for (var i = IterableMapping.iterate_start(data); IterableMapping.iterate_valid(data, i); i = IterableMapping.iterate_next(data, i))
+    {
+        var (key, value) = IterableMapping.iterate_get(data, i);
+        s += value;
+    }
+  }
+}
+© 2020 GitHub, Inc.
+```
+有中文批注的内容如下：
+```
+pragma solidity ^0.4.18;
+ 
+// mapping 遍历库
+library IterableMapping {
+ 
+    // 增、删、改、查
+    struct itmap {
+        uint size;
+        mapping(uint => IndexValue) data;
+        KeyFlag []keys;
+        // value
+    }
+ 
+    // key值的列表
+    struct KeyFlag {
+        uint key;
+        bool deleted;
+    }
+ 
+    // value
+    struct IndexValue {
+        uint KeyIndex;
+        uint value;
+    }
+ 
+ 
+    // 插入数据
+    function insert(itmap storage self, uint key, uint value) returns(bool replaced) {
+        uint keyIdx = self.data[key].KeyIndex;
+        self.data[key].value = value;
+        if (keyIdx > 0) {
+            return true;
+        }else {
+            keyIdx = self.keys.length++;
+            self.data[key].KeyIndex = keyIdx + 1;
+            self.keys[keyIdx].key = key;
+            self.size++;
+            return false;
+        }
+    }
+ 
+    // 删除数据(逻辑删除)
+    function remove(itmap storage self, uint key) returns(bool) {
+        uint keyIdx = self.data[key].KeyIndex;
+        if (keyIdx == 0) {
+            return false;
+        } else {
+            delete self.data[key]; //逻辑删除
+            self.keys[keyIdx - 1].deleted = true;
+            self.size --;
+            return true;
+        }
+    }
+ 
+    // 获取数据
+    function iterate_get(itmap storage self, uint KeyIdx) returns(uint key, uint value) {
+        key = self.keys[KeyIdx].key;
+        value = self.data[key].value;
+    }
+ 
+    // 包含
+    function iterate_contains(itmap storage self, uint key) returns(bool) {
+        return self.data[key].KeyIndex > 0;
+    }
+ 
+    // 获取下一个索引
+    function iterate_next(itmap storage self, uint _keyIndex) returns(uint r_keyIndex) {
+ 
+        _keyIndex++;
+        while(_keyIndex < self.keys.length && self.keys[_keyIndex].deleted) {
+            _keyIndex++;
+        }
+        return _keyIndex;
+    }
+ 
+    // 开始遍历
+    function iterate_start(itmap storage self) returns(uint keyIndex) {
+        iterate_next(self, uint(-1));
+    }
+ 
+    // 循环退出条件
+    function iterate_valid(itmap storage self, uint keyIndex) returns(bool) {
+        return keyIndex < self.keys.length;
+    }
+}
+
+//使用的示例---------
+```
+pragma solidity ^0.4.18;
+import "./Mapping.sol";
+// 调用合约
+contract User {
+    IterableMapping.itmap data;
+ 
+    // 插入数据
+    function insert(uint key, uint value) returns(uint size) {
+        IterableMapping.insert(data, key, value);
+        return data.size;
+    }
+ 
+    // 遍历求和
+    function sum() returns(uint s) {
+        for(var i = IterableMapping.iterate_start(data);
+            IterableMapping.iterate_valid(data, i);
+            i = IterableMapping.iterate_next(data, i)) {
+            var (key ,value) = IterableMapping.iterate_get(data, i);
+            s += value;
+        }
+    }
+}
+```
+
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址： https://www.941xue.com/content.aspx?id=1742 
+
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【原文地址】
+https://www.941xue.com/content.aspx?id=1742 
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/359989371 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1bz4y1Z7sa/ 
