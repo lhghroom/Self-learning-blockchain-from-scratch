@@ -1,0 +1,541 @@
+笔记合集在github上:
+ https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+
+【主要内容】
+今天继续自己开始写一个前端html页来与合约进行交互，共耗时40分钟。
+（此外整理作笔记花费了约15分钟）
+详细学习过程见文末学习过程屏幕录像。
+【交易界面的Html页面】
+```
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>非同质化资产</title>
+    <script language="javascript" type="text/javascript" src="jquery.min.js"></script>
+    <script language="javascript" type="text/javascript" src="web3.min.js"></script>
+    <!-- 1. Include cryptozombies_abi.js here -->
+    <script language="javascript" type="text/javascript" src="nftexchange_abi.js"></script>
+    <script language="javascript" type="text/javascript" src="nftexchange_main.js"></script>
+
+        
+</head>
+<body>
+    <div>
+        <p>
+            nft资产合约地址：
+        </p>
+        <p id="contractaddress" name="contractaddress">
+
+        </p>
+        <p id="goal" name="goal">
+
+        </p>
+
+        <p id="firstinfo" name="firstinfo">
+
+        </p>
+
+        <p id="accountsinfo" name="accountsinfo">
+
+        </p>
+        <p id="curinfo" name="curinfo">
+
+        </p>
+    
+    </div>
+    <div>
+        <input type="text" value="" id="txtaddressforone" name="txtaddressforone" />
+        <input type="button" value="查询正在出售的资产" id="cmdone" name="cmdone" onclick="cmdone_click();" />
+        
+        <span id="total" name="total"></span>
+        <br /><br />
+
+        <!--============================================-->
+        <hr />
+        <span>出售资产：</span>
+        <br />
+        <span>要出售的资产ID：</span>
+        <input type="text" value="" id="idforsale" name="idforsale" />
+        <br />
+        <span>出售价格：</span>   
+        <input type="text" value="" id="value" name="value" />
+        <br />              
+        <input type="button" value="确定出售" id="cmdsale" name="cmdsale" onclick="cmdsale_click();" />
+        <br />
+        <span id="spanforsale" name="spanforsale"></span>
+        <br /><br />        
+
+       <!--============================================-->
+        <hr />
+        <span>购买资产：</span>
+        <br />
+        <span>要购买的资产ID：</span>
+        <input type="text" value="" id="idforbuy" name="idforbuy" />
+        <br />
+        <span>出价：</span>   
+        <input type="text" value="" id="buyvalue" name="buyvalue" />
+        <br />              
+        <input type="button" value="确认购买" id="cmdbuy" name="cmdbuy" onclick="cmdbuy_click();" />
+        <br />
+        <span id="spanforbuy" name="spanforbuy"></span>
+        <br /><br />        
+
+ 
+
+       
+    </div>
+    
+</body>
+</html>
+```
+
+【交易界面的JS内容】
+```
+function isNumber(val) { //https://www.cnblogs.com/wangyunhui/p/8981813.html
+    var regPos = /^\d+(\.\d+)?$/; //非负浮点数
+    var regNeg = /^(-(([0-9]+\.[0-9]*[1-9][0-9]*)|([0-9]*[1-9][0-9]*\.[0-9]+)|([0-9]*[1-9][0-9]*)))$/; //负浮点数
+    if(regPos.test(val) || regNeg.test(val)) {
+        return true;
+        } else {
+        return false;
+        }
+    }
+
+//获取指定id的select标签选中value或text
+function getAselectValueOrText(strid,isvalue){
+    try {
+        var obj=document.getElementById(strid);
+        var intindex=obj.selectedIndex;
+        if(isvalue==true){
+            return obj.options[intindex].value;
+        }else{
+            return obj.options[intindex].text;
+        }
+    } catch (error) {
+        return "";
+    }
+}
+//得到bool类型的值   https://blog.csdn.net/asdfgh0077/article/details/103365856 第七楼
+function parseBool(value) {
+    if (typeof value === "boolean") return value;
+ 
+    if (typeof value === "number") {
+        return value === 1 ? true : value === 0 ? false : undefined;
+    }
+ 
+    if (typeof value != "string") return undefined;
+ 
+    return value.toLowerCase() === 'true' ? true : false;
+}
+
+
+// 格式化日期，如月、日、时、分、秒保证为2位数
+function formatNumber (n) {
+    n = n.toString()
+    return n[1] ? n : '0' + n;
+}
+// 参数number为毫秒时间戳，format为需要转换成的日期格式
+function formatTime (number, format) {
+    let time = new Date(number)
+    let newArr = []
+    let formatArr = ['Y', 'M', 'D', 'h', 'm', 's']
+    newArr.push(time.getFullYear())
+    newArr.push(formatNumber(time.getMonth() + 1))
+    newArr.push(formatNumber(time.getDate()))
+
+    newArr.push(formatNumber(time.getHours()))
+    newArr.push(formatNumber(time.getMinutes()))
+    newArr.push(formatNumber(time.getSeconds()))
+
+    for (let i in newArr) {
+        format = format.replace(formatArr[i], newArr[i])
+    }
+    return format;
+}
+
+
+            //声明一些钱包地址：
+            //下面一行定义的是部署合约的节点（创世节点）的信息，公钥
+            var wallet_address="0x5227C3EF48B5A1bcF784593e46D9579D26a3b592"; //狐狸钱包的公钥，就是钱包地址，是eth网络上的一个节点。
+            //下面一行定义的是节点2的信息
+            var w2add="0xe2d6c2f289c53B5aEA44C47293Ba179a3bfa21f0"; //公钥
+    
+            //下面一行定义的是节点3 的信息
+            var w3add="0xb40599fB0366DCf0ffe86677b005b3f20Dfa29aE"; //公钥
+    
+            //下面一行定义的是节点4 的信息
+            var w4add="0x70c8461366d5368B1E79CBFc2Acf4ba56C745977"; //公钥
+    
+    
+   
+            // 2. Start code here
+            var cc;
+            var web3;
+            //----下面是exchange.sol的合约地址
+            var heyueAddress='0xD743566eab537F268759DF6723280D866764F1b8';
+
+            function startApp() {
+                try {
+                    $("#contractaddress").html(heyueAddress);
+                    var ccc=web3.eth.contract(nftABI);
+                    cc=ccc.at(heyueAddress); //https://www.cnblogs.com/tinyxiong/p/9046626.html
+                    //cc =new web3.eth.contract(cryptozombiesABI, cryptoZombiesAddress); //如果是另一个版本可能还得加上new关键字。
+                    $("#firstinfo").html("连接上合约！")
+                    //alert(typeof cc);
+                    web3.eth.getAccounts(function (err, accounts) {
+                            if (accounts.length == 0) {
+                                $("#firstinfo").html("请检查钱包是否解锁");
+                            }else{
+                                $("#accountsinfo").html("获取的默认钱包地址：" + web3.eth.defaultAccount);
+                                //getCurGift();
+                            }
+                        });
+    
+                } catch (err) {
+                    alert(err);
+                }
+                $("#firstinfo").html("加载成功");
+                
+            }
+    
+            //async () => 
+
+        //现在这种通过we3.min.js来加载钱包连接的方法，在metamask钱包和麦子钱包中都测试通过。
+        window.addEventListener('load',function() {
+        try{
+            if (typeof web3 !== 'undefined') {
+                web3 = new Web3(web3.currentProvider);
+                startApp();
+            } else {
+                //$('#app_loading').hide();
+                //alert(jQuery.i18n.prop('lrn_error_alert'));
+                //mathWallet.closePage();
+                alert("这儿没有钱包环境。");
+            }
+
+
+        }catch(err){
+            alert(err);
+        }
+        });
+
+        //===========================================================================================
+    
+            //----------------下面是自定义的与合约交互的函数-------------------------
+ 
+//----------------------------------------------------------------------------------------------
+           //9--查询指定节点的NFT资产列表-----
+           function cmdnine_click(){
+            try{
+                tokensOf();
+            }catch(err){
+                alert(err);
+            }
+        }
+        //--查询指定节点的资产列表---
+            function tokensOf(){
+                try{
+                    var a=document.getElementById("txtaddressfornine").value;
+                    if(a!=""){
+                        cc.tokensOf(a,function(error, result){
+                        if(!error)
+                        {
+                            if(result.length>0){
+                                var strls="此节点拥有以下ID的资产：\n";
+                                for(var i=0;i<result.length;i++){
+                                    strls=strls + result[i] + "\n";
+                                    document.getElementById("spanfornine").innerText=strls;
+                                }
+
+                            }else{
+                                document.getElementById("spanfornine").innerText="此节点没有任何资产";
+                            }
+
+                        }
+                        else{
+                            //alert(error);
+                            document.getElementById("spanfornine").innerText=error;
+                        }});
+                        //return "ok"
+                        document.getElementById("spanfornine").innerText="正在查询...";
+                    }else{
+                        document.getElementById("spanfornine").innerText="请先输入合约地址。";
+                    }
+
+                }catch(err){
+                    document.getElementById("spanfornine").innerText='出错 ：' + err;
+                }
+            }
+
+
+
+//=------------------------------------------------------------------------------
+//----挂单出售资产----------------------
+            function cmdsale_click(){
+                var id=""; //资产的id
+                var strvalue="";
+                try {
+
+                    id=document.getElementById("idforsale").value;
+                    strvalue=document.getElementById("value").value;
+            
+                    if(isNumber(id)==false){
+                        alert("资产ID必须是一个数字");
+                        return false;
+                    }
+                    if(isNumber(strvalue)==false){
+                        alert("金额必须是一个数字");
+                        return false;
+                    }
+
+                } catch (error) {
+                    alert("在准备挂单出售资产时出错:" + error);
+                    return false;
+                }
+
+                try{
+                    web3.eth.getTransactionCount(web3.eth.defaultAccount,function(err,res){
+                        if(!err){
+                            //alert(res);web3.toWei(intvalue,'ether')
+                            var message = {to:heyueAddress,value:0,'chainId': 3,'gas': 300000,'gasPrice': web3.toWei('40', 'gwei'),'nonce': res};
+                            
+                            var flvalue=parseFloat(strvalue);
+                            var intvalue=flvalue * (10 ** 18);
+
+                            cc.sell(id,intvalue,message,function(err, res){
+                                var output = "";
+                                if (!err) {
+                                    output += res;
+                                } else {
+                                    output = err;
+                                }
+                                //----listendonate();
+                                document.getElementById('spanforsale').innerHTML = "返回信息：Transaction response= " + output + "<br />";
+                            });
+                            return true;
+                        }else{
+                            alert(err);
+                        }
+                    }); 
+                    document.getElementById('spanforsale').innerHTML = "操作执行中...";
+                }catch(err){
+                    alert('执行单个资产挂单出售时出错：' + err);
+                    document.getElementById('spanforsale').innerHTML = "执行失败：Transaction response= " + output + "<br />";
+                    return false;
+                }  
+
+            }
+
+
+//=------------------------------------------------------------------------------
+//----购买资产----------------------
+function cmdbuy_click(){
+    var id=""; //资产的id
+    var strvalue="";
+    try {
+
+        id=document.getElementById("idforbuy").value;
+        strvalue=document.getElementById("buyvalue").value;
+
+        if(isNumber(id)==false){
+            alert("资产ID必须是一个数字");
+            return false;
+        }
+        if(isNumber(strvalue)==false){
+            alert("出价金额必须是一个数字");
+            return false;
+        }
+
+    } catch (error) {
+        alert("在准备购买资产时出错:" + error);
+        return false;
+    }
+
+    try{
+        web3.eth.getTransactionCount(web3.eth.defaultAccount,function(err,res){
+            if(!err){
+                //alert(res);web3.toWei(intvalue,'ether')
+                var flvalue=parseFloat(strvalue);
+                var intvalue=flvalue * (10 ** 18);
+
+                var message = {'to':heyueAddress,'value':intvalue,'chainId': 3,'gas': 300000,'gasPrice': web3.toWei('40', 'gwei'),'nonce': res};
+                
+                cc.buy(id,message,function(err, res){
+                    var output = "";
+                    if (!err) {
+                        output += res;
+                    } else {
+                        output = err;
+                    }
+                    //----listendonate();
+                    document.getElementById('spanforbuy').innerHTML = "返回信息：Transaction response= " + output + "<br />";
+                });
+                return true;
+            }else{
+                alert(err);
+            }
+        }); 
+        document.getElementById('spanforbuy').innerHTML = "操作执行中...";
+    }catch(err){
+        alert('执行单个资产购买时出错：' + err);
+        document.getElementById('spanforbuy').innerHTML = "执行失败：Transaction response= " + output + "<br />";
+        return false;
+    }  
+
+}
+
+
+            //监听事件
+            function listendonate(){
+                try {
+                    document.getElementById('donateback').innerText="事件结果监听中......";
+                    //------------------------------------------
+                    var event=cc.FundTransfer();
+                    event.watch(function(error,result){
+                        if(!error){
+                            var strls="";
+                            var strls2="";
+                            for(let key in result){
+                               strls=strls + key + " : " + result[key] + "; ";
+                            }
+                            //https://me.tryblockchain.org/blockchain-solidity-event.html
+                            try {
+                                var fl=0.0;
+                                try {
+                                    fl=(result.args.amount - 0) / (10 ** 18);
+                                } catch (error) {
+                                    fl=0.0
+                                }
+                                var strls3=result.args.amount + "wei";
+                                if(fl!=0.0){
+                                    strls3=fl.toString + "ether"
+                                }
+                                strls2="参与众筹金额：" + strls3 + ",得到的代币CI金额" + result.args.backci + "ci.";
+                            } catch (error) {
+                                strls2="具体事件参数信息未能获取到：" + error;
+                            }
+
+                            document.getElementById('donateback').innerHTML=strls + "<br />" + strls2;
+                        }else{
+                           document.getElementById('donateback').innerText=error;
+                        }
+                    })
+
+                    /*
+                        下面是接收到的返回事件监控信息：
+                        address : 0x7a2559f23e056f39e844a465600eb605c4e3aeabblockHash : 0xfab4a6bc95c9aa41fc688e89a87023b124fd581c6bd680226ab08b3d883002ebblockNumber : 6459690logIndex : 1removed : falsetransactionHash : 0xdcd4b44f01fce402ac56ec22be5d6ba479195a48db3ea8082382b4cea81af856transactionIndex : 0event : FundTransferargs : [object Object]
+undefined,1000000000000000,100,100000000000000000000,100,100000 
+
+
+                    */
+
+                    //上面的写法成功，但只能监听当前 一次事件
+
+                    /*
+                        注意参照以下代码：
+                        instructorEvent.watch(function(error, result) {
+                            if (!error)
+                                {
+                                    $("#info").html(result.args.name + ' (' + result.args.age + ' years old)');
+                                } else {
+                                    console.log(error);
+                                }
+                        });
+                    */
+
+                    //下面这种写法报错
+                    //var myEvent = cc.events.FundTransfer({
+                    //    filter: {myIndexedParam: [20,23], myOtherIndexedParam: '0x123456789...'}, // Using an array means OR: e.g. 20 or 23
+                    //                fromBlock: 0
+                    //                },
+                    //    fromBlock: 0
+                    //}, function(error, event){})
+                    //.on('data', function(event){
+                    //    document.getElementById("listenback").innerText=event; // same results as the optional callback above
+                    //})
+                    //.on('changed', function(event){
+                    //        // remove event from local database
+                    //})        
+                    //.on('error', console.error);
+
+
+                    
+                } catch (error) {
+                    document.getElementById('donateback').innerText="监听事件错误：" + error;
+                }
+            }
+
+            //取回合约地址上多余的ci代币
+            function getciback(){
+                try {
+                    cc.getbackci(function(error, result){
+                        if(!error)
+                    {
+                        
+                        $("#getciback").html("操作完成。" + result);
+                       //alert(result);
+                    }
+                    else{
+                        //alert(error);
+                        $("#getciback").html('操作失败：' + error);
+                    }});
+                    //return "ok"
+                    $("#getciback").html('正在操作。。。');
+                } catch (error) {
+                    document.getElementById('getciback').innerText="尝试取回合约地址上剩余的ci代币时失败：" + error;
+                }
+            }
+
+            //取回包括历史事件记录在内的所有记录，当前 函数取回参与众筹的广播事件
+            function listenevent(){
+                try {
+                    //执行下面的语句时，会把getPastEvents当作合约中的函数处理，
+                    //但由于合约中根本没有这个函数，所以会报错，
+                    //http://cw.hubwiz.com/card/c/web3.js-1.0/1/4/15/
+                    var event=cc.FundTransfer();
+                    event.watch({filter:{
+                        //filter: {myIndexedParam: [20,23], myOtherIndexedParam: '0x123456789...'}, // Using an array means OR: e.g. 20 or 23
+                        fromBlock: 0,
+                        toBlock: 'latest'
+                    }}, function(error, events){
+                        document.getElementById("listenback").innerText=events;
+                    })
+                    //.then(function(events){
+                    //    document.getElementById("listenback").innerText=events;// same results as the optional callback above
+                    //});
+
+                } catch (error) {
+                    document.getElementById("listenback").innerText="监听失败：" + error;
+                }
+            }
+```
+今天并没有成功完成测试。
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【原文地址】
+https://www.941xue.com/content.aspx?k=941XUEPCYRWH01167031755179838603 
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/363606451 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1Ma4y1L7qH/ 
