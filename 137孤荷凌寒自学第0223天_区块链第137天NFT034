@@ -1,0 +1,535 @@
+接下来二十天的断更说明：又是一年年关到，感谢同好同学者一起互相交流，学习，感谢大家的鼓励，帮助。接下来二十天左右，我将回家陪护双边父母，会暂停所有网络活动，专心陪伴父母。诚然，自我工作以来，双边父母的辛勤打工都已终止，这是我对他们的承诺，一个男子汉应尽的责任，过去若干年里，我也觉得自己已经做得相当好了，然而直到有一天结识了一位年轻退休者，以比我小的年纪给我上了真正的一课——什么是孝道：当父母需要你做任何事的时候，你都在身边，这才是最大的孝道——于是我才明白：我差得太远，这也是很多朋友疑惑我为什么一把年纪了还在如青春少年一般拼命的真实原因：树欲静而风不止,子欲养而亲不待。当一个人有了明确的目标的时候，行动会自然坚定，当一个人有了坚定信念的时候，周围的一切都会让开一条路。
+所有走在奋斗征途上的朋友们，回家看看父母，再激励自己的斗志吧。此致，共勉。
+【主要内容】
+今天开始修改完善智能合约代码，共耗时37分钟。
+（此外整理作笔记花费了约13分钟）
+详细学习过程见文末学习过程屏幕录像。
+【主要修改了文件ERC721Base.sol】
+```
+pragma solidity ^0.4.18;
+
+import './SafeMath.sol';  //这是一个library
+
+import './AssetRegistryStorage.sol';  //资产登记所需要的基类全约，其中声明了各种需要登记到区块中的（变量类型为storage)mapping表变量
+
+import './IERC721Base.sol';  //这儿声明了erc721的interface
+
+import './IERC721Receiver.sol';  //在这个文件中声明了一个Interface,声明了让合约可以接收nft的函数onERC721Received
+
+import './ERC165.sol';  //erc165的interface
+
+
+//--这个合约也不是最子级的合约，虽然这个合约基本完善地完成了NFT资产所需要的各种方法
+//FullAssetRegistry.SOL文件中的FullAssetRegistry合约还会继承这个合约生成新的子合约
+contract ERC721Base is AssetRegistryStorage, IERC721Base, ERC165 {
+  //作为基类合约的IERC721Base和ERC165中声明的只是一个interface，但仍然可以被当作基类合约使用。
+  using SafeMath for uint256;  //这儿使用了库 SafeMath.sol中的内容
+
+  // Equals to `bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"))`
+  bytes4 private constant ERC721_RECEIVED = 0x150b7a02; //ERC165接口需要的常量，表示 合约是否可以接收 NFT资产的标识
+
+  bytes4 private constant InterfaceId_ERC165 = 0x01ffc9a7; //ERC165需要的常量，表示合约是否支持erc165接口
+  /*
+   * 0x01ffc9a7 ===
+   *   bytes4(keccak256('supportsInterface(bytes4)'))
+   */
+
+  bytes4 private constant Old_InterfaceId_ERC721 = 0x7c0633c6;
+  bytes4 private constant InterfaceId_ERC721 = 0x80ac58cd;  //ERC721需要的常量，表示合约是否支持erc721接口
+   /*
+   * 0x80ac58cd ===
+   *   bytes4(keccak256('balanceOf(address)')) ^
+   *   bytes4(keccak256('ownerOf(uint256)')) ^
+   *   bytes4(keccak256('approve(address,uint256)')) ^
+   *   bytes4(keccak256('getApproved(uint256)')) ^
+   *   bytes4(keccak256('setApprovalForAll(address,bool)')) ^
+   *   bytes4(keccak256('isApprovedForAll(address,address)')) ^
+   *   bytes4(keccak256('transferFrom(address,address,uint256)')) ^
+   *   bytes4(keccak256('safeTransferFrom(address,address,uint256)')) ^
+   *   bytes4(keccak256('safeTransferFrom(address,address,uint256,bytes)'))
+   */
+
+  //
+  // Global Getters
+  //
+
+  /**
+   * @dev Gets the total amount of assets stored by the contract 获取当前合约管理着多少个NFT的总数量 
+   * @return uint256 representing the total amount of assets
+   */
+  function totalSupply() external view returns (uint256) {
+    return _totalSupply(); //通过调用下一个函数到获取
+  }
+  function _totalSupply() internal view returns (uint256) {
+    return _count;  //状态变量（全局变量）_count是在sol文件AssetRegistryStorage.sol中声明的
+  }
+
+  //注意到，这儿的每一个方法，都进行了安全隔离，对外，采用external关键字修饰，对内（包括对下级合约——也就是把当前合约当作父级合约的子合约）使用internal关键字。
+  /*
+
+    public与private
+    对于public和private，相信学过其他主流语言的人都能明白：
+
+    public修饰的变量和函数，任何用户或者合约都能调用和访问。
+    private修饰的变量和函数，只能在其所在的合约中调用和访问，即使是其子合约也没有权限访问。
+    external和internal
+    除 public 和 private 属性之外，Solidity 还使用了另外两个描述函数可见性的修饰词：internal（内部） 和 external（外部）。
+
+    internal 和 private 类似，不过， 如果某个合约继承自其父合约，这个合约即可以访问父合约中定义的“内部”函数。
+    external 与public 类似，只不过这些函数只能在合约之外调用 - 它们不能被合约内的其他函数调用。
+
+    internal、private、external、public这4种关键字都是可见性修饰符，互不共存(也就是说，同一时间只能使用这四个修饰字中的一个)
+    ————————————————
+    版权声明：本文为CSDN博主「黄嘉成」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+    原文链接：https://blog.csdn.net/qq_33829547/java/article/details/80460013
+
+  */
+  //
+  // Asset-centric getter functions 查询有关NFT的所有者等相关信息的操作
+  //
+
+  /**
+   * @dev Queries what address owns an asset. This method does not throw. 传入NFT的ID值：assetId，以查询得到此NFT资产的拥有人是谁。
+   * In order to check if the asset exists, use the `exists` function or check if the
+   * return value of this call is `0`.
+   * @return uint256 the assetId
+   */
+  function ownerOf(uint256 assetId) external view returns (address) {
+    return _ownerOf(assetId);
+  }
+  function _ownerOf(uint256 assetId) internal view returns (address) {
+    return _holderOf[assetId];  //状态变量（全局变量）_holderOf是在sol文件AssetRegistryStorage.sol中声明的
+  }
+
+  //
+  // Holder-centric getter functions
+  //
+  /**
+   * @dev Gets the balance of the specified address 查看一个节点（形参 owner指定）拥有总共多少个NFT
+   * @param owner address to query the balance of
+   * @return uint256 representing the amount owned by the passed address
+   */
+  function balanceOf(address owner) external view returns (uint256) {
+    return _balanceOf(owner);
+  }
+  function _balanceOf(address owner) internal view returns (uint256) {
+    return _assetsOf[owner].length; //状态变量（全局变量）_assetsOf是在sol文件AssetRegistryStorage.sol中声明的
+  }
+
+  //
+  // Authorization getters  获取当前资产授权状态的函数方法
+  //
+
+  /**
+   * @dev Query whether an address has been authorized to move any assets on behalf of someone else  查询 形参 assetHolder 节点 是否已经把 它的所有NFT资产都授权给了 形参 operator 节点，允许 形参 operator 节点 全权处理（包括移动）这些NFT资产。
+   * @param operator the address that might be authorized
+   * @param assetHolder the address that provided the authorization
+   * @return bool true if the operator has been authorized to move any assets
+   */
+  function isApprovedForAll(address assetHolder, address operator)
+    external view returns (bool)
+  {
+    return _isApprovedForAll(assetHolder, operator);
+  }
+  function _isApprovedForAll(address assetHolder, address operator)
+    internal view returns (bool)
+  {
+    return _operators[assetHolder][operator]; //状态变量（全局变量）_operators是在sol文件AssetRegistryStorage.sol中声明的
+  }
+
+  /**
+   * @dev Query what address has been particularly authorized to move an asset 查询指定ID的NFT资产（形参 assetId 指定） 当前 已经被 授权给哪个 节点 处理。
+   * @param assetId the asset to be queried for
+   * @return bool true if the asset has been approved by the holder
+   */
+  function getApproved(uint256 assetId) external view returns (address) {
+    return _getApprovedAddress(assetId);
+  }
+  function getApprovedAddress(uint256 assetId) external view returns (address) {
+    return _getApprovedAddress(assetId);
+  }
+  function _getApprovedAddress(uint256 assetId) internal view returns (address) {
+    return _approval[assetId];
+  }
+
+  /**
+   * @dev Query if an operator can move an asset. 查询 一个 节点（形参 operator 指定）是不是已经 被 授权处理 指定ID的NFT（形参 assetId）
+   * @param operator the address that might be authorized
+   * @param assetId the asset that has been `approved` for transfer
+   * @return bool true if the asset has been approved by the holder
+   */
+  function isAuthorized(address operator, uint256 assetId) external view returns (bool) {
+    return _isAuthorized(operator, assetId);
+  }
+  function _isAuthorized(address operator, uint256 assetId) internal view returns (bool)
+  {
+    require(operator != 0); //检查 节点地址是否为空
+    address owner = _ownerOf(assetId);  //得到指定ID的NFT本身是属于哪个节点地址的
+    if (operator == owner) {   //如果指定ID的NFT的归属节点就是当前 要查询 的operator 那么，就直接返回TRUE
+      return true;
+    }
+    return _isApprovedForAll(owner, operator) || _getApprovedAddress(assetId) == operator; 
+    //双竖线左边是检查节点owner是否已经授权节点operator处理它的全部NFT资产，双竖线右边是获取指定id的assetId现在的授权处理节点地址是否等于Operator
+    //如果以上两个条件二者之一符合，则会返回TRUE,否则 返回FALSE
+  }
+
+  //
+  // Authorization  执行授权等操作的函数方法区域
+  //
+
+  /**
+   * @dev Authorize a third party operator to manage (send) msg.sender's asset 当前调用合约的节点（msg.sender)调用此方法来向指定的节点（形参 operator 指定）授权允许其 操作自己的所有NFT资产，或撤消这个授权——是发起授权还是撤消授权由形参 authorized 的BOOL值决定
+   * @param operator address to be approved
+   * @param authorized bool set to true to authorize, false to withdraw authorization
+   */
+  function setApprovalForAll(address operator, bool authorized) external {
+    return _setApprovalForAll(operator, authorized);
+  }
+  function _setApprovalForAll(address operator, bool authorized) internal {
+    if (authorized) { //如果是发起授权
+      require(!_isApprovedForAll(msg.sender, operator));
+      _addAuthorization(operator, msg.sender);  //这个方法在本合约稍后定义的，直接操纵 映射表  _operators 来完成
+    } else { //如果是撤消授权
+      require(_isApprovedForAll(msg.sender, operator));
+      _clearAuthorization(operator, msg.sender); //这个方法在本合约稍后定义的，直接操纵 映射表  _operators 来完成
+    }
+    emit ApprovalForAll(msg.sender, operator, authorized); //广播这个事件，事件的定义在sol文件IERC721Base.sol中声明的
+  }
+
+  /**
+   * @dev Authorize a third party operator to manage one particular asset //这个函数是授权节点Operator可以操作调用合约节点（msg.sender)的指定ID的一个nft资产。
+   * @param operator address to be approved
+   * @param assetId asset to approve
+   */
+  function approve(address operator, uint256 assetId) external {
+    address holder = _ownerOf(assetId);  //获取要操作的指定ID的NFT（这儿就是形参assetId)当前的所有者节点的地址
+    require(msg.sender == holder || _isApprovedForAll(msg.sender, holder));
+    //上一个语句，左边是检查当前合约调用节点是不是就是此ID的NFT资产的所有人，右边检查，当前调用合约的节点是不是已经把自己的所有NFT资产的操作权授权给了当前操作的指定ID的NFT资产的所有人（现在是变量holder表示）。
+    //只要两者有其一是true ,语句将会继续 执行，如果两者都是false，则语句就不再继续往下执行。
+    require(operator != holder); //如果要被授权的节点就是holder节点，那么就没有意义了，所以这儿要检测一下。
+
+    //于是下一句话进行了进一步的检查，如果要被授权的节点operator已经是指定id的Nft资产可操作者，那就不必要进行重复授权操作了。
+    if (_getApprovedAddress(assetId) != operator) {
+      _approval[assetId] = operator; //直接将映射表_approval中指定ID的NFT资产的被授权操作节点修改为operator就可以了。
+      emit Approval(holder, operator, assetId); //广播这个更改映射表的事件。
+    }
+  }
+
+  //--下面这个函数 是为函数 _setApprovalForAll 准备的子函数
+  function _addAuthorization(address operator, address holder) private {
+    _operators[holder][operator] = true;
+  }
+
+  //--下面这个函数 是为函数 _setApprovalForAll 准备的子函数
+  function _clearAuthorization(address operator, address holder) private {
+    _operators[holder][operator] = false;
+  }
+
+  //
+  // Internal Operations
+  //
+
+  //下面这个函数把指定ID的NFT资产（形参assetId指定）的 所有人 指定为 to这个节点 （变更资产所有人）
+  function _addAssetTo(address to, uint256 assetId) internal {
+    _holderOf[assetId] = to; //在资产所有人的映射表中，变更 此资产的所有人为to节点
+
+    uint256 length = _balanceOf(to); //记录下to这个节点现在有多少个NFT资产
+
+    _assetsOf[to].push(assetId); //向映射表_assetsOf中的to节点下添加新的NFT资产的ID
+
+    _indexOfAsset[assetId] = length; //更改映射表 _indexOfAsset中指定的当前 ID的 NFT资产在to节点自己的资产登记表_assetOf中的Index值，现在发现，这个Index值 是从1开始的，而不是从零开始的。
+
+    _count = _count.add(1); //这儿没有理解为什么_count需要增加1——现在知道 了，因为 把一个指定 ID的nft资产从某个 节点中移除时，这个变量是减少了1的，所以重新 登记 时，这个变量就要加上1
+  }
+
+  //下面这个函数把指定 ID的NFT资产（形参assetId指定）从原 拥有者(形参from指定 的节点)中删除掉，操作之后，这个NFT资产的归属节点地址 为0
+  function _removeAssetFrom(address from, uint256 assetId) internal {
+    uint256 assetIndex = _indexOfAsset[assetId]; //获取指定ID的NFT资产的在其拥有者的所有资产中的index值
+    uint256 lastAssetIndex = _balanceOf(from).sub(1); //查询from节点名下有多少个nft资产，这儿减掉1的意思是使Index是从0开始计数的，这和上一个函数的理解是否有冲突
+    uint256 lastAssetId = _assetsOf[from][lastAssetIndex]; //获取到指定节点from名下的最后一个nft资产的id值，index的问题，现在我的理解 是，从映射表 _indexOfAsset获取 到的Index值都要减去1才能用于映射表_assetsOf
+
+    _holderOf[assetId] = 0; //将指定ID的NFT的归属节点地址设置为空，意味着，这个NFT资产从原拥有者的名下被删除掉了（它现在不再属于任何一个节点）
+
+    // Insert the last asset into the position previously occupied by the asset to be removed
+    //将最后一个资产插入要移除的资产先前占用的位置__把from节点所有的资产列表中_assetsOf[from]原本在最后一项的资产的ID值lastAssetId记录到被删除的那个 资产_assetsOf[from][assetIndex] 的位置那儿——也就是原Index为assetIndex值的那个资产位置现在记录的是原来 最后一个资产的ID
+    _assetsOf[from][assetIndex] = lastAssetId;
+
+    // Resize the array
+    _assetsOf[from][lastAssetIndex] = 0; //现在from节点的所有资产清单中的index为最后一项资产记录的资产ID值被设置 为 0
+    _assetsOf[from].length--; //这儿居然直接将映射表_assetOf[from]的元素长度减少了一
+
+    // Remove the array if no more assets are owned to prevent pollution
+    if (_assetsOf[from].length == 0) { //如果from节点名下现在已经没有任何NFT资产了，
+      delete _assetsOf[from];  //可以直接删除映射表中指定的一项
+    }
+
+    // Update the index of positions for the asset
+    _indexOfAsset[assetId] = 0; //现在被从原拥有者名下 删除掉的指定ID的NFT资产的index记录被设置成了0
+    _indexOfAsset[lastAssetId] = assetIndex; //因为from节点所拥有的全部NFT资产记录清单中的最后一项资产的index值已经改变，所以要在映射表_indexOfAsset中也作修改。
+
+    _count = _count.sub(1); //这儿记录下整个合约记录的所有NFT资产的总数也减少了1（在重新把这个指定 ID的NFT资产登记 给另一个节点 的时候 ，COUNT值又会加上1）
+  }
+
+  //撤消对指定ID的NFT资产（形参assetId指定）可代为操作权的授权声明，是函数approve的逆过程，这个函数仅供本合约内部调用
+  function _clearApproval(address holder, uint256 assetId) internal {
+    if (_ownerOf(assetId) == holder && _approval[assetId] != 0) { //检查Holder节点是不是此NFT资产的所有人，同时检查 当前NFT资产量不是有必要更改授权
+      //不过我发现 ，这儿是直接 传入 一个参数Holder作为地址，意味着并没有 检查 当前调用 合约的节点msg.sender是不是holder这个节点 ，当然这个函数呢使用的关键字是：internal
+      //当前函数只能供本合约内部调用 ，那我的理解 是，这个函数是供别的公开函数调用 的子函数
+      _approval[assetId] = 0; //现在这个指定 ID的NFT资产被授权给节点地址 0 可以代为操作，意味着之前的授权被撤消了
+      emit Approval(holder, 0, assetId); //广播 授权的变更，只是这一次变更为授权给地址为0的节点
+    }
+  }
+
+  //
+  // Supply-altering functions
+  //
+
+  //增加一个方法来获取assetId的下一个可用id序号
+  function _getnewfreeassetid() internal view returns (uint256){
+    uint256 rr = 1;
+    if(_assetsIds.length > 0){
+      uint256 c = _assetsIds.length;
+      for(uint256 i = 0;i < c;i++){
+        if(rr < _assetsIds[i]){
+          rr = _assetsIds[i];
+        }
+      }
+      rr = rr+1; //前面的循环只能取出 最大的一个ID，这儿要取得新 的ID ，所以得加上1
+    }      
+    return rr;
+  }
+
+  //实现让 节点beneficiary 获取指定ID的NFT资产（assetId这个形参指明了是哪个NFT资产），本函数仅供本合约内部调用
+  function _generate(uint256 assetId, address beneficiary) internal {
+    require(_holderOf[assetId] == 0); //首先检查一下，指定的NFT是否是 没有拥有者 的状态，如果是属于没有归属者的NFT才可以执行后续操作。
+
+    _addAssetTo(beneficiary, assetId); //然后用上面定义过的本合约专用的内部函数 把这个NFT转移给节点：beneficiary
+
+    bool isnewid = true;
+    if(_assetsIds.length > 0){
+      uint256 c = _assetsIds.length;
+      for(uint256 i = 0;i < c;i++){
+        if(assetId == _assetsIds[i]){
+          isnewid = false;
+          break;
+        }
+      }
+    }else{
+      isnewid = true;
+    }
+    if(isnewid == true){
+      _assetsIds.push(assetId);
+    }
+
+    emit Transfer(0, beneficiary, assetId); //广播这一资产转移 的事件，从节点地址为0的节点转移给beneficiary代表的节点
+  }
+
+  //
+  // Transaction related operations
+  //下面定义了六个函数修改器
+  //
+
+  //这个函数修改器用于限制当前调用合约的节点，要执行指定函数操作的节点必须是要操作的NFT资产的拥有节点
+  modifier onlyHolder(uint256 assetId) {
+    require(_ownerOf(assetId) == msg.sender);
+    _;
+  }
+
+  //这个函数修改器用于限制针对当前要操作的NFT资产，当前调用合约的节点是不是已经取得了对此NFT资产的操作权（这个节点被授权操作这个NFT了吗？）
+  modifier onlyAuthorized(uint256 assetId) {
+    require(_isAuthorized(msg.sender, assetId)); //使用了前面定义的函数来检查指定节点这儿是msg.sender是不是已经取得了这个NFT的操作权。
+    _;
+  }
+
+  //这个函数修改器的作用时，限制from节点是不是assetId对应的NFT资产的实际拥有者
+  modifier isCurrentOwner(address from, uint256 assetId) {
+    require(_ownerOf(assetId) == from);
+    _;
+  }
+
+  //这个函数修改器用于限制指定的节点destinatary是不是一个空地址（地址为0）
+  modifier isDestinataryDefined(address destinatary) {
+    require(destinatary != 0); //只有在其地址不为0的情况下，才会继续执行后面的语句
+    _;
+  }
+
+  //这个函数修改器的作用时，防止to节点就是指定ID的NFT资产（这儿由assetId指定）的拥有者
+  modifier destinataryIsNotHolder(uint256 assetId, address to) {
+    require(_ownerOf(assetId) != to); //只有这个Nft资产的拥有者节点不是to节点时，后面的代码才会执行
+    _;
+  }
+
+  //下面这个函数修改器是后面添加的，用以检查当前调用合约 的节点是不是合约的部署节点（合约的拥有者节点）
+  modifier iscontractowner(){
+    require(msg.sender==addowner);
+    _;
+  }
+
+  //销毁资产(针对资产的拥有者来说)，应当定义另一个方法来让合约拥有者可以恢复被拥有者自己删除的NFT资产
+  //让指定ID的NFT资产（由形参assetId指定）从现在的拥有在手中 脱离（转移开），就是使其现拥有者不再拥有这个NFT资产，本函数仅供本合约内部调用
+  //只能由当前资产的拥有者节点(isCurrentOwner(msg.sender, assetId)函数修改器用以检查)来执行指定ID的资产的销毁----------------------------
+  function _destroy(uint256 assetId) isCurrentOwner(msg.sender, assetId) internal {
+    address holder = _holderOf[assetId]; //首先获取指定NFT资产当前 的实际拥有人
+    require(holder != 0); //检查此NFT资产当前 的实际拥有地址是否为0
+
+    _removeAssetFrom(holder, assetId); //调用上面定义好的函数，从原拥有人者的资产列表中删除掉这个NFT资产，这一步执行完成后，这个NFT资产的归属节点地址就是0
+
+    emit Transfer(holder, 0, assetId); //广播这一资产转移 的事件，从原节点地址转移给节点地址为0的节点
+  }
+
+
+  //合约的拥有者可以让被销毁的资产重新分配给另一个节点地址
+  function _recovery(address newadd,uint256 assetId) iscontractowner() internal {
+    address holder = _holderOf[assetId]; //首先获取指定NFT资产当前 的实际拥有人
+    require(holder == 0); //检查此NFT资产当前 的实际拥有地址是否为0  ，是0说明这是 一个之前被注销过的资产
+    require(newadd != 0); //检查要接收此资产的新地址是否为0，不能是0
+    _addAssetTo(newadd, assetId); //将这个NFT资产登记到to这个节点名下
+    emit Transfer(holder, newadd, assetId); //广播这次完整的资产转移过程的事件      
+  }
+
+
+//下面的转账函数有点问题并不能完全保证，授权状态下转移 第三方节点的资产
+//主要问题是：_moveToken函数使用函数修改器的问题，未经确认。
+
+  /**
+   * @dev Alias of `safeTransferFrom(from, to, assetId, '')`
+   * 这是安全进行资产转移 的函数
+   * @param from address that currently owns an asset
+   * @param to address to receive the ownership of the asset
+   * @param assetId uint256 ID of the asset to be transferred
+   */
+   //这个函数进行资产转移 ，把assetId代表的NFT资产从节点from转移给节点to,这个方法是只能由外部调用合约者使用的方法
+  function safeTransferFrom(address from, address to, uint256 assetId) external {
+    return _doTransferFrom(from, to, assetId, '', true); //具体过程调用了下面紧接着定义的一个仅供本合约内部调用的函数
+  }
+
+
+
+  /**
+   * @dev Securely transfers the ownership of a given asset from one address to
+   * another address, calling the method `onNFTReceived` on the target address if
+   * there's code associated with it
+   * 这是上一个函数的另一个版本，支持添加额外交易数据
+   * @param from address that currently owns an asset
+   * @param to address to receive the ownership of the asset
+   * @param assetId uint256 ID of the asset to be transferred
+   * @param userData bytes arbitrary user information to attach to this transfer
+   */
+  function safeTransferFrom(address from, address to, uint256 assetId, bytes userData) external {
+    return _doTransferFrom(from, to, assetId, userData, true);
+  }
+
+  /**
+   * @dev Transfers the ownership of a given asset from one address to another address
+   * Warning! This function does not attempt to verify that the target address can send
+   * tokens.
+   * 这是个常规的进行资产转移 的函数（不过调用的是和上面两个函数调用的相同的内部函数）
+   * @param from address sending the asset
+   * @param to address to receive the ownership of the asset
+   * @param assetId uint256 ID of the asset to be transferred
+   */
+  function transferFrom(address from, address to, uint256 assetId) external {
+    return _doTransferFrom(from, to, assetId, '', false);
+  }
+
+  //这个仅供合约内部使用的函数才是真正的实现NFT资产转移 的函数过程
+  function _doTransferFrom(
+    address from,
+    address to,
+    uint256 assetId,
+    bytes userData,
+    bool doCheck
+  )
+    onlyAuthorized(assetId)  //v添加了函数修改器，必须保证调用合约者msg.sender拥有对当下操作的NFT资产的操作权（被授权过）
+    internal
+  {
+    _moveToken(from, to, assetId, userData, doCheck); //进一步调用下级子函数来实现。
+  }
+
+  function _moveToken(
+    address from,
+    address to,
+    uint256 assetId,
+    bytes userData,
+    bool doCheck
+  )
+    isDestinataryDefined(to) //这儿添加了三个函数修改器，加强检查，首先确保to节点的地址不为0
+    destinataryIsNotHolder(assetId, to) //这儿确保to节点不是assetId代表的NFT资产的所有人
+    isCurrentOwner(from, assetId) //这儿确保from节点（而不是调用合约的msg.sender节点）是assetId代表的NFT资产的实际拥有人（现在明白过来，与上级函数的是否有权处理指定ID的资产的函数修改器不冲突）
+    private      //这个函数是私有的，只能本合约调用，连子合约都不能调用
+  {
+    address holder = _holderOf[assetId];  //取得NFT资产原有的所有者节点
+    _clearApproval(holder, assetId);  //清除这个nft资产相关的全部授权信息
+    _removeAssetFrom(holder, assetId); //从原所有者节点的资产表中删除这个NFT资产
+    _addAssetTo(to, assetId); //将这个NFT资产登记到to这个节点名下
+    emit Transfer(holder, to, assetId); //广播这次完整的资产转移过程的事件
+
+    if (doCheck && _isContract(to)) { //如果需要执行检查，检查什么？第二个条件是在检查 to 这个节点是一个智能合约地址吗？
+      // Equals to `bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"))
+      //如果to这个节点是一个智能合约所在的节点地址，那么执行下面的代码
+      require(
+        IERC721Receiver(to).onERC721Received(
+          msg.sender, holder, assetId, userData
+        ) == ERC721_RECEIVED
+      );
+      //初步理解 上一句话就是 检查 to这个节点上的智能合约是否支持 接收nft资产，就是看其中有没有定义过一个方法onERC721Received()
+    }
+  }
+
+  /**
+   * Internal function that moves an asset from one holder to another
+   */
+
+  /**
+   * @dev Returns `true` if the contract implements `interfaceID` and `interfaceID` is not 0xffffffff, `false` otherwise
+   * @param  _interfaceID The interface identifier, as specified in ERC-165
+   */
+   //这个只供外界调用的函数方法，用于检测本合约是否实现了erc165及erc721合约接口，初步理解
+  function supportsInterface(bytes4 _interfaceID) external view returns (bool) {
+
+    if (_interfaceID == 0xffffffff) {  //就是要求合约一定不能支持0xffffffff接口，这到底是什么接口规范？
+      return false;
+    }
+    return _interfaceID == InterfaceId_ERC165 || _interfaceID == Old_InterfaceId_ERC721 || _interfaceID == InterfaceId_ERC721;
+  }
+
+  //
+  // Utilities 下面这个函数用于合约内部检查一个节点地址是否是一个智能合约所在的节点地址。
+  //
+
+  function _isContract(address addr) internal view returns (bool) {
+    uint size;
+    assembly { size := extcodesize(addr) }  //在大括号中的汇编代码，extcodesize指令是求出节点地址addr所在的智能合约的代码的size
+    return size > 0; //如果size大于0,就说明这个节点地址是一个智能合约所在的节点，普通的以太坊节点上没有存放智能合约 代码，因此 size=0，而有智能合约驻存的节点地址，上面的智能合约代码，因此 这个size就会>0
+  }
+}
+```
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+原文地址： 
+
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【原文地址】
+https://www.941xue.com/content.aspx?k=941XUEZQKXWM89493394293802154591 
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/363943075 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1b54y1C78U/ 
