@@ -1,0 +1,114 @@
+【主要内容】
+今天继续修改完善智能合约代码，共耗时34分钟。
+（此外整理作笔记花费了约22分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【较低版本的solidity不支持string数组】
+今天在智能合约中，准备加入一个可以返回所有已被节点自行注销的nft资产ID列表的方法，同时返回每个NFT的对应的data的string。
+结果在编译时就出现 提示，才想到，string类型本身就是byte数组了，再来个字符串数组，就是二维数组了，solidity低版本是不支持的，同时复习到，字符串数组作为参数传递也是不行的。
+【在solidity函数内部定义的事storage关键字的变量也是要写入区块的】
+对这一块本身不是很熟悉，总感觉自己学习得似是而非，今天一开始在函数内部定义了一个数组对象，没有使用storage，结果编译检查时，提示我加上storage关键字，我就加上了，结果 合约部署后，发现这个函数方法就成为了一个一定要付油费才能调用的方法了。
+【最终完成的文件：StandardAssetRegistryTest.sol】
+```
+pragma solidity ^0.4.18;
+
+import './FullAssetRegistry.sol';
+//这个合约是最终可供部署的合约
+//第一次部署完成这个合约的地址 0x61b84673A5768Fd046c98e69251C8f5493B44497   第一次部署时，使用的基准sol文件是：exchange.sol
+//第二次部署完成的这个合约的地址 0xeD4202E35c63EDfDC38Fff34100Ac86217960DD3   第二次部署时，使用的基准sol文件就是本合约文件
+//第三次部署完成的这个合约的地址 0xCDBc486981014948e87F8A53b8F754405F1fA5E8   第三次部署时，使用的基准sol文件与第二次一样，本次文件作了大量的修改
+//第四次部署完成的这个合约的地址 0x487866047aF2078A0dB86E2217539898c0E9c7c3
+contract StandardAssetRegistryTest is FullAssetRegistry {
+
+  constructor() public {
+    _name = "ghlhNft"; //给nft命名
+    _symbol = "GHLH"; //标识代号
+    _description = "ghlh's nft assets"; //描述
+    addowner=msg.sender; //指明了谁是这个合约的部署者，目前的设想是：合约的拥有者可以把已被原资产拥有者主动销毁的资产重新分配给新的节点地址；合约拥有者可以获得一定交易手续费
+  }
+
+  //下面的方法检查某个节点地址是不是一个合约地址-------------------------
+  function isContractProxy(address addr) public view returns (bool) {
+    return _isContract(addr); //在基类合约 ERC721Base.sol 中定义的一个仅供合约内部调用的方法
+  }
+
+  //生成一个新资产，这个函数已被孤荷凌寒修改。 这个方法供外部调用。beneficiary是受益人节点地址，也就是把指定ID的NFT资产登记到beneficiary节点名下
+  function generate(address beneficiary,string data) public {
+    uint256 assetId = _getnewfreeassetid(); //获取一个新的ID，在基类合约 ERC721Base.sol 中定义的一个仅供合约内部调用的方法
+    _generate(assetId, beneficiary); //登记这个新的NFT资产在基类合约 ERC721Base.sol 中定义的一个仅供合约内部调用的方法
+    //下面是孤荷凌寒补充的，增加这个ID资产的URL
+    _update(assetId,data); //这个方法是个仅供内部调用的方法在文件ERC721Metadata.sol中定义的
+  }
+
+  //让指定ID的NFT资产（由形参assetId指定）从现在的拥有在手中 脱离（转移开），就是使其现拥有者不再拥有这个NFT资产，
+  //这这时候只有assetId的拥有节点可以执行销毁操作
+  function destroy(uint256 assetId) public {
+    _destroy(assetId); //在基类合约 ERC721Base.sol 中定义的一个仅供合约内部调用的方法
+  }
+
+  //合约拥有者可以把已经注销的NFT资产进行恢复，并指定给另一个节点
+  //只有合约拥有者可以操作
+  function recovery(uint256 assetId,address newadd) public {
+    _recovery(newadd,assetId);
+  }
+
+  //这儿还应当有一个方法：把已经被节点自己注销的NFT的ID信息查询出来 ，返回所有已被注销的NFT资产的ID数组
+  function getdestroyid() public returns (uint256[]){
+      //这里不能返回字符串数组，
+      //https://blog.csdn.net/weixin_34242819/article/details/89695922
+      uint256[] storage idlst;  //如果 定义为storage就 建议 初始化，但我不会初始化了，暂时没有理解 
+      //在测试中发现，如果这儿写为storage，那么意味这个变量是要写入区块的，是要付出油费的，所以不能这样写。
+      uint intc=_assetsIds.length;
+      if(intc>0){
+        uint i=0;
+        uint256 id=0;
+        for(i=0;i<intc;i++){
+          id=_assetsIds[i];
+          if(_holderOf[id]==0){
+            //===拥有者为零的nft就是已经被注销掉的
+            idlst.push(id);
+          }
+        }
+
+      }
+      return idlst;
+
+  }
+
+
+  // Problematic override on truffle 转移资产的方法
+  function safeTransfer(address from, address to, uint256 assetId, bytes data) public {
+    return _doTransferFrom(from, to, assetId, data, true); //在基类合约 ERC721Base.sol 中定义的一个仅供合约内部调用的方法//这个仅供合约内部使用的函数才是真正的实现NFT资产转移 的函数过程
+  }
+}
+
+
+```
+
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【原文地址】
+https://www.941xue.com/content.aspx?k=941XUENHKGMY74850990474712933399 
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/366527157 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1Fy4y1q789/ 
