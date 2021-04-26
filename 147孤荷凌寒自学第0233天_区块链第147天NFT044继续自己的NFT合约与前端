@@ -1,0 +1,191 @@
+孤荷凌寒自学第0233天
+区块链学习第147天
+NFT044继续自己的NFT合约与前端
+（文末有具体的学习过程录屏视频地址等）
+
+
+笔记合集在github上:
+ https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+
+【主要内容】
+今天继续修改完善智能合约代码与前端代码，共耗时33分钟。
+（此外整理作笔记花费了约24分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【基本证明我自己写的solidity库文件是对的】
+之前我自己写了一个关于uint数组的库，今天exchange.sol合约部署成功，基本认定库文件没有问题：
+```
+  pragma solidity ^0.4.18;
+
+library ghlhsuintarraylib{
+    //下面的函数来自于：https://learnblockchain.cn/2019/02/22/delete-item/
+    //作了修改
+    function uintarrayremovebyindex(uint256[] storage array,int256 index) internal {
+        uint256 intls=uint256(index);
+        if (intls < array.length){
+            for (uint256 i = intls; i<array.length-1; i++){
+                array[i] = array[i+1];
+            }
+            delete array[array.length-1];
+            array.length--;
+        }
+
+    }
+
+    //这个函数是自己添加的，by孤荷凌寒QQ:578652607
+    function uintarraygetindexbyvalue(uint256[] array,uint256 value) internal pure returns(int256) {
+        if(array.length < 1){return -1;}
+        uint256 intlen=array.length;
+        int256 intindex=-1;
+        for (uint256 i=0;i<intlen;i++){
+            if(array[i]==value){
+                intindex=int256(i);
+                break;
+            }
+        }
+        return intindex;
+    }   
+
+    //这个函数是自己添加的，by孤荷凌寒qq:578652607
+    function uintarrayremovebyvalue(uint256[] storage array,uint256 value) internal {
+        int256 intindex=uintarraygetindexbyvalue(array,value);
+        if(intindex >=0 ){
+            uintarrayremovebyindex(array,intindex);
+        }
+    }    
+
+}
+```
+在合约部署后，已经测试了，写入数组，删除数组指定位置的值两个操作，都没有问题。
+【现在exchange.sol合约的内容】
+```
+pragma solidity ^0.4.18;
+
+//第一次合约部署后的合约地址：0x4123B737C7eE8ed3352f950693149a535A52fbB9 部署时基准sol文件是本合约 文件
+//第二次合约部署后的合约地址：0xD743566eab537F268759DF6723280D866764F1b8   部署时的基准sol文件是本合约文件
+//第三次合约部署，对应于NFT合约第六次部署：0x714fa7ad1cAe8E0aB50DA333Ee87D6888f6880A8
+import './StandardAssetRegistryTest.sol';
+import './ghlhsuintarraylib.sol';
+//这个合约的目的是，对NFT 资产进行 定价 （amount ）并进行【交易】
+//这个合约引用了 StandardAssetRegistryTest.sol 却没有继承它，目前感觉是直接把StandardAssetRegistryTest当作了一个类来使用，就是说可以直接作为声明一个新类型变量的标识 关键字
+contract Exchange {
+  // From asset to amount
+  mapping(uint256 => uint256) internal _orders; //这个映射表用于记录下 每个ID(第一个uint256)的NFT资产的定价(第二个uint256)
+  //----下面单独登记三个数组--------------
+  uint256[] idlst;
+  uint256[] valuelst;
+  //string[] datalst;  //这是不行，因为string数组不能被返回
+
+  StandardAssetRegistryTest internal nonFungible; //目前感觉是直接把StandardAssetRegistryTest当作了一个类来使用，就是说可以直接作为声明一个新类型变量的标识 关键字
+  //现在 nonFungible 就可以看作 合约 （类）StandardAssetRegistryTest 实例化后得到的一个具体对象
+
+  constructor(address _nonFungible) public { //本合约 的建构函数 有一个形参
+    nonFungible = StandardAssetRegistryTest(_nonFungible); //这儿把这个形参传递给 合约 标识，没有理解 
+    //现在证实：形参_nonFungible 应当是 合约：StandardAssetRegistryTest.sol先部署后得到的合约地址，这儿直到的连接到这合约地址的作用。只是一种猜想。也就是先部署StandardAssetRegistryTest.sol，再部署本合约。
+    //现在 nonFungible 是一个具体的实例化后的对象
+  }
+
+  //挂单---
+  //指定ID的NFT资产的拥有节点把他自己的这个NFT资产定个价出售（挂出来）
+  function sell(uint256 assetId, uint256 amount) public {
+    require(nonFungible.ownerOf(assetId) == msg.sender); //现在nonFungible.ownerOf使用的方法就是基类合约中的方法
+    _orders[assetId] = amount; //在映射表中登记这个资产的目前定价 amount
+    //----添加到专门的数组中------------
+    idlst.push(assetId);
+    valuelst.push(amount);
+    //datalst.push(nonFungible.tokenMetadata(assetId));
+  }
+
+//撤回出售
+function unsell(uint256 assetId) public {
+    require(nonFungible.ownerOf(assetId) == msg.sender); //现在nonFungible.ownerOf使用的方法就是基类合约中的方法
+    _orders[assetId] = 0; //修改定价为0，意思 就是不再出售
+    //----从专门的的在售列表数组中删除当前ID的资产的记录------------
+    int256 intindex=ghlhsuintarraylib.uintarraygetindexbyvalue(idlst,assetId);
+    if(intindex>=0){
+      ghlhsuintarraylib.uintarrayremovebyindex(idlst,intindex);
+      ghlhsuintarraylib.uintarrayremovebyindex(valuelst,intindex);
+      //ghlhsuintarraylib.uintarrayremovebyindex(datalst,intindex);
+    }
+
+  }
+
+  //购买指定ID的NFT资产的方法
+  function buy(uint256 assetId) payable public {
+    require(msg.value >= _orders[assetId]); //验证当前调用合约的节点 发送的 代币（ETH）的数量是否大于等于这个指定ID资产的 当前 定价
+    require(_orders[assetId] > 0); //还得验证这个资产的定价是否不是 0，这儿默认认为如果价格是0那就不是出售状态
+    address owner = nonFungible.ownerOf(assetId); //在购买完成前，这个资产是属于哪个节点的
+    owner.transfer(_orders[assetId]); //原拥有资产的节点 获得 ETH (就是卖方收钱了)
+    uint remaining = msg.value - _orders[assetId]; //如果当前调用合约的节点发送的ETH大于此资产的实际定价，那么求出 要找零 的余额。
+    if (remaining > 0) {
+     msg.sender.transfer(remaining); //找零给买家
+    }
+    nonFungible.safeTransferFrom(owner, msg.sender, assetId); //完成这个NFT资产的归属节点的转移 （交货）
+    //下面把资产的出售状态去除
+    _orders[assetId]=0;
+    //从在售列表中把当前资产删除
+    int256 intindex=ghlhsuintarraylib.uintarraygetindexbyvalue(idlst,assetId);
+    if(intindex>=0){
+      ghlhsuintarraylib.uintarrayremovebyindex(idlst,intindex);
+      ghlhsuintarraylib.uintarrayremovebyindex(valuelst,intindex);
+      //ghlhsuintarraylib.uintarrayremovebyindex(datalst,intindex);
+    }
+  }
+
+  //查询指定ID的资产是否正在出售
+  function isassetissaling(uint256 assetId) view public returns (bool){
+    if(_orders[assetId]>0){
+      return true;
+    }else{
+      return false;
+    }
+  }
+
+  //查询指定ID的资产的售价
+  function getassetValue(uint256 assetId) view public returns (uint256){
+    return _orders[assetId];
+  }  
+
+  //返回所有在售资产的列表,第一个数组为ID列表，第二个数组为金额列表
+  function getAllassetList() view public returns(uint256[],uint256[]){
+    return (idlst,valuelst);
+  }
+
+}
+
+
+```
+与exchange.sol合约交互的前端基本没有修改，只是修改了abi字符串，然后修改了合约地址。
+然而测试时，狐狸钱包提示不能授权连接到这个页面——
+MetaMask is not connected this site. To connect to a web3 site, find the connect button on their site.
+这情况直接让我不知所措，折腾了好一会儿，不知道为什么同样的的JS来连接到钱包，这个页面就不行，而之前 的页面就可以。
+最终今天没有解决问题，也就没有尝试到购买资产的的合约 交互。
+github: https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
+
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【原文地址】
+https://www.941xue.com/content.aspx?k=941XUEYBDNUT83211699531490024112 
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/367444854 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV1hV411a7rq/ 
+
+
