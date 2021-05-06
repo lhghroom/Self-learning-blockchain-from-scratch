@@ -1,0 +1,145 @@
+【主要内容】
+今天尝试解决交易NFT时的购买操作不能完成，仍然失败了，同时学习solidity0.7版，共耗时30分钟。
+（此外整理作笔记花费了约36分钟）
+详细学习过程见文末学习过程屏幕录像。
+
+【solidity0.7.0学习笔记】
+https://learnblockchain.cn/docs/solidity/layout-of-source-files.html
+一、版本标识Pragmas
+认真阅读官方文档，才明白过来，^符号在版本标识中意思 只是，在当前二级版本号范围内有效。
+如：
+pragma solidity ^0.5.2;
+这样，源文件将既不允许低于 0.5.2 版本的编译器编译， 也不允许高于（包含） 0.6.0 版本的编译器编译（第二个条件因使用 ^ 被添加）。 这种做法的考虑是，编译器在 0.6.0 版本之前不会有重大变更，所以可确保源代码始终按预期被编译。 上面例子中不固定编译器的具体版本号，因此编译器的补丁版也可以使用。
+不是我之前理解 的那样，只要版本高于0.5.2就可以，原来是有上限的（到0.6之下）
+
+二、ABI增强测试功能标识 ABIEncoderV2
+新的 ABI 编码器可以用来编码和解码嵌套的数组和结构体，当然这部分代码还在优化之中，他没有像之前 ABI 编码器 那样经过严格的测试，我们可以使用下面的语法来启用它 pragma experimental ABIEncoderV2; 。
+
+三、文件引用 import
+今天才发现solidity的文件引用其实非常的丰富，完全参照 了javascript语言，甚至我个人感觉与python语言也非常类似。
+因为缺乏实践，所以简单引用以下笔记：
+“
+Solidity 支持的导入语句来模块化代码，其语法跟 JavaScript（从 ES6 起）非常类似。 尽管 Solidity 不支持 default export 。
+
+注解
+
+ES6 即 ECMAScript 6.0，ES6是 JavaScript 语言的下一代标准，已经在 2015 年 6 月正式发布。 
+
+在全局层面上，可使用如下格式的导入语句：
+
+import "filename";
+此语句将从 “filename” 中**导入所有的全局符号到当前全局作用域**中（不同于 ES6，Solidity 是向后兼容的）。
+
+这种形式已经不建议使用，因为它会无法预测地污染当前命名空间。 如果在“filename”中添加新的符号，则会自动添加出现在所有导入 “filename” 的文件中。 更好的方式是明确导入的具体 符号。
+
+向下面这样，创建了新的 symbolName 全局符号，他的成员都来自与导入的 "filename" 文件中的全局符号，如：
+
+import * as symbolName from "filename";
+然后所有全局符号都以``symbolName.symbol``格式提供。 此语法的变体不属于ES6，但可能有用：
+
+import "filename" as symbolName;
+它等价于 import * as symbolName from "filename";。
+
+如果存在命名冲突，则可以在导入时重命名符号。例如，下面的代码创建了新的全局符号 alias 和 symbol2 ，引用的 symbol1 和 symbol2 来自 “filename” 。
+
+import {symbol1 as alias, symbol2} from "filename";
+路径
+上文中的 filename 总是会按路径来处理，以 / 作为目录分割符、以 . 标示当前目录、以 .. 表示父目录。 当 . 或 .. 后面跟随的字符是 / 时，它们才能被当做当前目录或父目录。 只有路径以当前目录 . 或父目录 .. 开头时，才能被视为相对路径。
+
+用 import "./filename" as symbolName; 语句导入当前源文件同目录下的文件 filename 。 如果用 import "filename" as symbolName; 代替，可能会引入不同的（如在全局 include directory 中）文件。
+
+最终导入哪个文件取决于编译器（见下文 在实际的编译器中使用）到底是怎样解析路径的。 通常，目录层次不必严格映射到本地文件系统， 它也可以映射到能通过诸如 ipfs，http 或者 git 发现的资源。
+
+注解
+
+通常使用相对引用 import "./filename.sol"; 并且避免使用 .. ，后面这种方式可以使用全局路径并设置映射
+
+”
+
+【找到了exchange.sol智能合约文件调用buy方法总不成功的原因】
+一、首先进行了重复测试，昨天 的测试发现eth费用支付与收钱都没有执行，今天重复测试一次昨天 发布的智能合约，发现支付与收钱操作是成功完成的。
+二、先是修改了了资产转移 的方法调用：
+```
+  //购买指定ID的NFT资产的方法
+  function buy(uint256 assetId) payable public {
+    require(msg.value >= _orders[assetId]); //验证当前调用合约的节点 发送的 代币（ETH）的数量是否大于等于这个指定ID资产的 当前 定价
+    require(_orders[assetId] > 0); //还得验证这个资产的定价是否不是 0，这儿默认认为如果价格是0那就不是出售状态
+    //---把第一句注释掉的代码换成下面的写法：https://www.cnblogs.com/zhizaixingzou/p/10122209.html
+    //if(msg.value < _orders[assetId]){
+    //  revert("没有足够的ether来支付");
+      //return ; //这种写法未经验证
+    //}
+    //if(_orders[assetId] == 0){
+    //  revert("this nft is unselled.");
+    //  return ; //这种写法未经验证
+    //}
+    
+    address owner = nonFungible.ownerOf(assetId); //在购买完成前，这个资产是属于哪个节点的
+    owner.transfer(_orders[assetId]); //原拥有资产的节点 获得 ETH (就是卖方收钱了)
+    uint remaining = msg.value - _orders[assetId]; //如果当前调用合约的节点发送的ETH大于此资产的实际定价，那么求出 要找零 的余额。
+    if (remaining > 0) {
+      msg.sender.transfer(remaining); //找零给买家
+    }
+    //下面这个语句转移资产出错：检查代码发现，使用safeTransFrom少传了一个实参，这个方法的最后一个形参是data
+    //nonFungible.safeTransferFrom(owner, msg.sender, assetId); //完成这个NFT资产的归属节点的转移 （交货）
+    //现在使用方法transferFrom
+    nonFungible.transferFrom(owner, msg.sender, assetId);
+    //下面把资产的出售状态去除
+    _orders[assetId]=0;
+    //从在售列表中把当前资产删除
+    int256 intindex=ghlhsuintarraylib.uintarraygetindexbyvalue(idlst,assetId);
+    if(intindex>=0){
+      ghlhsuintarraylib.uintarrayremovebyindex(idlst,intindex);
+      ghlhsuintarraylib.uintarrayremovebyindex(valuelst,intindex);
+      //ghlhsuintarraylib.uintarrayremovebyindex(datalst,intindex);
+    }
+  }
+
+```
+部署成功，然而调用bug方法仍然失败了
+好在今天发现了真实的原因：
+所有资产转移 的方法，最终都调用了
+ERC721Base.sol
+文件中的方法
+_doTransferFrom
+而
+_doTransferFrom
+方法最终调用的是另一个方法：
+_moveToken
+问题就出在
+_doTransferFrom
+方法使用了一个函数修改器：
+onlyAuthorized
+因为这个函数修改器要求执行资产转移时，调用合约的节点必须是要转移 的资产ID的拥有者（OWNER）或已被授权(approved)，而购买者节点调用合约，不能保证已经被授权，所以资产转移是不会成功的。
+当然可以去除这个函数修改器：onlyAuthorized
+然而这会造成重大的安全问题，目前我想到的方法是，得在节点决定出售自己的资产时就加上授权操作语句，然而新的问题是，出售方节点在决定出售资产时，它把资产授权给谁呢？它又不知道谁要购买这个节点？
+是不是需要引入 第三方节点（中介节点）？
+这是接下来要研究的问题。
+
+【欢迎大家加入[就是要学]社群】
+如今，这个世界的变化与科技的发展就像一个机器猛兽，它跑得越来越快，跑得越来越快，在我们身后追赶着我们。
+很多人很早就放弃了成长，也就放弃了继续奔跑，多数人保持终身不变的样子，原地不动，成为那猛兽的肚中餐——当然那也不错，在猛兽的逼迫下，机械的重复着自我感觉还良好地稳定工作与生活——而且多半感觉不到这有什么不正常的地方，因为在猛兽肚子里的是大多数人，就好像大多数人都在一个大坑里，也就感觉不出来这是一个大坑了，反而坑外的世界显得有些不大正常。
+为什么我们不要做坑里的大多数人？
+因为真正的人生，应当有百万种可能 ；因为真正的一生可以有好多辈子组成，每一辈子都可以做自己喜欢的事情；因为真正的人生，应当有无数种可以选择的权利，而不是总觉得自己别无选择。因为我们要成为一九法则中为数不多的那个一；因为我们要成为自己人生的导演而不是被迫成为别人安排的戏目中的演员。
+【请注意】
+就是要学社群并不会告诉你怎样一夜暴富！也不会告诉你怎样不经努力就实现梦想！
+【请注意】
+就是要学社群并没有任何可以应付未来一切变化的独门绝技，也没有值得吹嘘的所谓价值连城的成功学方法论！
+【请注意】
+社群只会互相帮助，让每个人都看清自己在哪儿，自己是怎样的，重新看见心中的梦想，唤醒各自内心中的那个英雄，然后勇往直前，成为自己想要成为的样子！
+期待与你并肩奔赴未来！
+
+QQ群：646854445 （【就是要学】终身成长）
+ 
+
+
+【原文地址】
+https://www.941xue.com/content.aspx?k=941XUEUPUKYV90637311510941615967 
+【同步语音笔记】
+https://www.ximalaya.com/keji/19103006/369612322 
+
+【学习过程屏幕录屏】
+https://www.bilibili.com/video/BV14h41127Hs/ 
+
+笔记合集在github上:
+ https://github.com/lhghroom/Self-learning-blockchain-from-scratch 
